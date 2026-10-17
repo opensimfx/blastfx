@@ -1,0 +1,38 @@
+from ..utils.naming import component_name
+from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
+
+
+def build_dust(context, collection, controller, config):
+    physical = config["physical"]
+    numerical = config["numerical"]
+    profile = config.get("profile")
+    radius = physical.characteristic_radius_m
+    name = component_name(controller["blastfx_id"], "Dust")
+    obj = primitive_flow(
+        collection, name, controller.location,
+        "cylinder", radius=radius * 2.5, depth=max(radius * 0.3, 0.02), segments=64,
+    )
+    _, flow = configure_fluid_modifier(obj, "FLOW")
+    configure_flow(
+        flow, flow_type="SMOKE", temperature=0.05,
+        density=numerical.density_scale * (
+            profile.dust_density_factor if profile else 2.0
+        ),
+        velocity=(0.0, 0.0, numerical.characteristic_velocity_mps * 0.10),
+        velocity_normal=numerical.characteristic_velocity_mps * (
+            profile.dust_velocity_normal_factor if profile else 0.30
+        ),
+        velocity_random=profile.dust_velocity_random if profile else 0.65,
+        surface_distance=0.25, volume_density=1.0, subframes=3,
+    )
+    duration_s = config.get("timeline_duration_s", config["duration"])
+    duration_factor = profile.dust_duration_factor if profile else 0.35
+    frames = max(2, int(context.scene.render.fps * duration_s * duration_factor))
+    keyframe_inflow(flow, config["start_frame"], config["start_frame"] + frames)
+    obj.hide_render = True
+    obj.display_type = "WIRE"
+    obj["blastfx_role"] = "emitter"
+    obj["blastfx_id"] = controller["blastfx_id"]
+    obj["blastfx_component"] = "dust"
+    obj["blastfx_generated"] = True
+    return obj

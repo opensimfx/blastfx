@@ -1,0 +1,26 @@
+{
+  "id": "nuclear_ground",
+  "label": "Large Ground Blast",
+  "type": "LARGE",
+  "defaults": {
+    "scale": 1.0,
+    "intensity": 1.0,
+    "speed": 1.0,
+    "duration": 24.0,
+    "seed": 12345
+  },
+  "components": {
+    "fireball": true,
+    "stem": true,
+    "dust": true,
+    "shockwave": true,
+    "debris": false,
+    "flash": true,
+    "camera_fx": false
+  },
+  "simulation": {
+    "preview_resolution": 128,
+    "final_resolution": 256,
+    "noise": 2
+  }
+}
