@@ -1,0 +1,24 @@
+{
+  "id": "medium",
+  "label": "Fuel / Vehicle Explosion",
+  "type": "FUEL",
+  "defaults": {
+    "scale": 1.0,
+    "intensity": 1.0,
+    "speed": 1.0,
+    "duration": 8.0
+  },
+  "components": {
+    "fireball": true,
+    "stem": false,
+    "dust": true,
+    "shockwave": true,
+    "debris": false,
+    "flash": true
+  },
+  "simulation": {
+    "preview_resolution": 96,
+    "final_resolution": 220,
+    "noise": 2
+  }
+}
