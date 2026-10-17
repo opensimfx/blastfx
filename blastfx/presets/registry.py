@@ -47,8 +47,8 @@ def _builtin_presets() -> Dict[str, Preset]:
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True},
             simulation={"resolution": 256, "noise": 2},
         ),
-        "nuclear_ground": Preset(
-            id="nuclear_ground",
+        "large_ground": Preset(
+            id="large_ground",
             label="Large Ground Blast",
             description="Large conventional blast with rising column.",
             explosion_type="LARGE",

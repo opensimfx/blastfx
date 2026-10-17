@@ -1,4 +1,4 @@
-"""Generate the Blast FX regression scenes listed in PHYSICS_VALIDATION_PLAN.md F.
+"""Generate the Blast FX regression scenes listed in docs/DEVELOPMENT.md plan F.
 
 Run with:
     /Applications/Blender.app/Contents/MacOS/Blender --background \
@@ -49,7 +49,7 @@ SCENES = (
     ("test_small.blend", "small", 1001),
     ("test_medium.blend", "medium", 2002),
     ("test_large.blend", "large", 3003),
-    ("test_large_event.blend", "nuclear_ground", 4004),
+    ("test_large_event.blend", "large_ground", 4004),
 )
 
 SENSOR_WIDTH_MM = 36.0  # Blender camera default sensor width

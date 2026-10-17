@@ -210,14 +210,13 @@ Blast FX uses a deterministic physically informed profile for each explosion typ
 
 - **Small Blast** uses a compact source, short emission, strong outward velocity, limited turbulence, and short-lived secondary effects.
 - **Fuel / Vehicle** uses a larger fuel-rich source, longer emission, lower burning rate, rolling turbulence, and persistent soot.
-- **Large Ground Blast** adds a broad ground-fed surge and delayed dust/shock behavior rather than scaling the fuel profile.
-- **Large Ground Blast** (`nuclear_ground`) uses the LARGE profile: a large hot source, stronger buoyant rise, a broad ground surge, delayed dust, and long-persistent smoke. It is intentionally not a yield, damage, or fallout model.
+- **Large Ground Blast** (`large_ground`) uses the LARGE profile: a large hot source, stronger buoyant rise, a broad ground-fed surge and delayed dust behavior, and long-persistent smoke. It is intentionally not a yield, damage, or fallout model.
 
 All profile fields are serialized into cache identity and contribute to the deterministic domain envelope. Consequently, changing a source, combustion, timing, or morphology control cannot reuse an incompatible bake.
 
 ## Large-blast scope
 
-The LARGE profile (the `nuclear_ground` preset) is a **visual representation** of a large-scale atmospheric blast.
+The LARGE profile (the `large_ground` preset) is a **visual representation** of a large-scale atmospheric blast.
 
 It models visual phenomena such as:
 - intense initial flash

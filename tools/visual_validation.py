@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path(__import__("os").environ.get(
     "BLASTFX_OUTPUT", "/tmp/blastfx_visual_validation"
 )).expanduser().resolve()
-PRESETS = ("small", "medium", "large", "nuclear_ground")
+PRESETS = ("small", "medium", "large", "large_ground")
 
 
 def _clean_scene() -> None:
@@ -482,7 +482,7 @@ def run_one(preset_id: str) -> dict:
     case_name = __import__("os").environ.get("BLASTFX_CASE", "").lower()
     profile_key = {
         "small": "GROUND", "medium": "FUEL", "large": "LARGE",
-        "nuclear_ground": "LARGE",
+        "large_ground": "LARGE",
     }[preset_id]
     profile = PROFILES[profile_key]
     overrides_text = __import__("os").environ.get("BLASTFX_PROFILE_OVERRIDES", "")

@@ -1,6 +1,7 @@
 {
-  "id": "nuclear_ground",
+  "id": "large_ground",
   "label": "Large Ground Blast",
+  "description": "Large conventional blast with rising column.",
   "type": "LARGE",
   "defaults": {
     "scale": 1.0,
