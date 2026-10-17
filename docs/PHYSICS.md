@@ -7,6 +7,7 @@ Blast FX produces visually credible explosions by deriving secondary effects fro
 The add-on is a **visual simulation system for Blender**. It is not an engineering tool for predicting real explosive effects, weapon performance, or real-world blast damage.
 
 The physics layer is designed around:
+
 - SI units
 - dimensional consistency
 - conservation-aware procedural controls
@@ -102,6 +103,7 @@ frame = start_frame + seconds * scene.render.fps / scene.render.fps_base
 Explosion size must not simply scale mesh dimensions.
 
 When scale changes, the engine derives corresponding:
+
 - domain size
 - voxel size
 - emitter dimensions
@@ -150,6 +152,7 @@ Do not independently keyframe each phase with arbitrary unrelated timing.
 ## Conservation-aware design
 
 Procedural emitters should avoid:
+
 - unexplained energy appearing after the initial event
 - velocity discontinuities without a source
 - arbitrary temperature spikes
@@ -173,6 +176,7 @@ Blast FX uses a hierarchy of truth.
 Do not expose values such as "real pressure = X" unless the engine actually computes that quantity under a validated model.
 
 Use names such as:
+
 - `reference_energy_class`
 - `normalized_intensity`
 - `expansion_velocity`
@@ -193,6 +197,7 @@ The UI should clearly identify Tier C controls.
 ### Reproducibility
 
 Every generated blast stores:
+
 - add-on version
 - preset version
 - random seed
@@ -219,6 +224,7 @@ All profile fields are serialized into cache identity and contribute to the dete
 The LARGE profile (the `large_ground` preset) is a **visual representation** of a large-scale atmospheric blast.
 
 It models visual phenomena such as:
+
 - intense initial flash
 - rapidly expanding hot volume
 - buoyant rising column

@@ -15,11 +15,13 @@ Do not use the system Python to import `bpy`.
 
 `Edit > Preferences > Add-ons > Install...`
 
-Select the zip produced by `tools/package.py` (`blastfx_v1.zip` in the repo root).
+Select the zip produced by `tools/package.py` (`blastfx_v1.zip` in the
+repo root).
 
 ### Option B: Development symlink
 
-Use Blender's add-on search path or create a symlink into the Blender scripts/addons directory.
+Use Blender's add-on search path or create a symlink into the Blender
+scripts/addons directory.
 
 Keep the source repository outside Blender's installation directory.
 
@@ -50,7 +52,8 @@ registration, property definitions or module imports.
 
 - Keep functions small.
 - Do not put simulation construction in UI panels.
-- Do not access `bpy.context` deep inside pure configuration code unless necessary.
+- Do not access `bpy.context` deep inside pure configuration code unless
+  necessary.
 - Prefer explicit controller references over active-object discovery.
 - Do not silently swallow errors.
 - Compatibility helpers may catch expected Blender RNA drift and must log it.
@@ -85,11 +88,13 @@ At minimum test:
 Do not optimize before measuring.
 
 The expected expensive operations are:
+
 1. Mantaflow bake
 2. noise/up-resolution bake
 3. high-density volume rendering
 
-The add-on should keep procedural setup fast and predictable even when simulation is expensive.
+The add-on should keep procedural setup fast and predictable even when
+simulation is expensive.
 
 ## Mantaflow bake workers
 
@@ -168,7 +173,7 @@ the override participates in the existing physical-state/cache identity.
 `results.json` records the complete profile, overrides, rendered samples,
 evaluated grids, and final Mantaflow settings.
 
-```sh
+```bash
 BLASTFX_PRESET=large \
 BLASTFX_CASE=low_smoke \
 BLASTFX_QUALITY=PREVIEW BLASTFX_RESOLUTION=64 \
@@ -224,7 +229,8 @@ explosion simulator.
 
 ### A. Unit validation
 
-Verify: scene unit scale, metres per Blender unit, FPS, FPS base, gravity, ambient temperature, ambient density.
+Verify: scene unit scale, metres per Blender unit, FPS, FPS base, gravity,
+ambient temperature, ambient density.
 
 ### B. Temporal validation
 
@@ -235,6 +241,7 @@ differ.
 ### C. Scale validation
 
 Run the same normalized preset at 0.5×, 1×, 2×. Verify that:
+
 - shape proportions remain coherent
 - domain dimensions scale
 - emitter dimensions scale
@@ -271,6 +278,7 @@ Each scene should contain a camera, neutral lighting and a deterministic seed.
 ### G. Acceptance rule
 
 A parameter may be called "physical" only if:
+
 1. its unit is known,
 2. its transformation is documented,
 3. its solver mapping is understood,
