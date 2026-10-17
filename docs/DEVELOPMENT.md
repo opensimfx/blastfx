@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Blender 4.2+
+- Blender 5.2+
 - Python bundled with Blender
 - Git
 - A Blender project file for local testing
@@ -43,7 +43,8 @@ The add-on exposes:
 
 `Blast FX > Advanced > Reload`
 
-During early development, restarting Blender is still preferred when changing registration, property definitions or module imports.
+During early development, restarting Blender is still preferred when changing
+registration, property definitions or module imports.
 
 ## Coding rules
 
@@ -206,11 +207,9 @@ silhouettes and timing, but final-resolution visual review is still required.
   behavior.
 - **Fuel:** preserve an irregular multi-lobed flame through the measured burn
   interval, followed by smoke.
-- **Large Ground:** the composite visibly separates fireball, ground surge,
-  expanding dust/air front, and lingering dirty smoke.
-- **Large (`nuclear_ground`):** the composite reads as one large event:
-  fireball, expanding dust/air front, and lingering dirty smoke, framed by
-  the large-event camera.
+- **Large (`large_ground`):** the composite visibly separates fireball, ground
+  surge, expanding dust/air front, and lingering dirty smoke, and reads as one
+  large event framed by the large-event camera.
 
 Record values as physical only when their units and dimensional mapping are
 validated. Otherwise describe them as normalized Mantaflow controls or

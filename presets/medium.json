@@ -1,6 +1,7 @@
 {
   "id": "medium",
   "label": "Fuel / Vehicle Explosion",
+  "description": "Medium ground explosion with base surge.",
   "type": "FUEL",
   "defaults": {
     "scale": 1.0,

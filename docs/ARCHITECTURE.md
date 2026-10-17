@@ -128,13 +128,15 @@ A rebuild should:
 
 ## 6. Quality profiles
 
-Preview and final are quality profiles, not separate simulation engines.
+Draft, Preview and Final are quality profiles, not separate simulation engines.
 
 - **Draft** — UI and structural validation: 64–96 resolution, noise off, short frame range.
 - **Preview** — motion and shape: 96–160 resolution, optional noise, normal frame range.
 - **Final** — rendering: 256+ resolution, noise enabled, full frame range.
 
-Actual defaults must remain configurable. The underlying physical configuration must never change between profiles; only numerical resolution, noise and solver quality do.
+Actual defaults must remain configurable. The underlying physical
+configuration must never change between profiles; only numerical resolution,
+noise and solver quality do.
 
 ## 7. Engine services
 
@@ -287,7 +289,9 @@ UX rules:
 - Cache status should always be visible.
 - Warnings should appear before expensive operations.
 
-Artist-facing physical controls should include physical scale, reference energy class, normalized intensity, event duration in seconds, and ambient conditions. The UI should display units. Raw solver controls belong under Advanced.
+Artist-facing physical controls should include physical scale, reference energy
+class, normalized intensity, event duration in seconds, and ambient conditions.
+The UI should display units. Raw solver controls belong under Advanced.
 
 ## 15. Preset model
 
@@ -295,7 +299,7 @@ A preset should contain artistic defaults and engine hints.
 
 ```json
 {
-  "id": "nuclear_ground",
+  "id": "large_ground",
   "label": "Large Ground Blast",
   "type": "LARGE",
   "defaults": {
@@ -322,17 +326,28 @@ The add-on targets Blender 5.2 and keeps Mantaflow RNA access centralized.
 Verified API model:
 
 - `FluidModifier.fluid_type` must be set to `DOMAIN` or `FLOW` before reading `domain_settings` or `flow_settings`.
-- Gas controls such as `alpha`, `beta`, `vorticity`, `burning_rate`, `flame_smoke`, `flame_vorticity`, `flame_ignition`, and `flame_max_temp` are properties of `FluidDomainSettings`; there is no `gas_settings` object in the Blender 5.2 Python API.
-- Flow controls such as `fuel_amount`, `temperature`, `density`, `surface_distance`, `velocity_coord`, `velocity_normal`, and `velocity_random` belong to `FluidFlowSettings`.
+- Gas controls such as `alpha`, `beta`, `vorticity`, `burning_rate`,
+  `flame_smoke`, `flame_vorticity`, `flame_ignition`, and `flame_max_temp` are
+  properties of `FluidDomainSettings`; there is no `gas_settings` object in the
+  Blender 5.2 Python API.
+- Flow controls such as `fuel_amount`, `temperature`, `density`,
+  `surface_distance`, `velocity_coord`, `velocity_normal`, and
+  `velocity_random` belong to `FluidFlowSettings`.
 - Mantaflow flow and domain objects are real mesh objects.
 - Baking uses `bpy.ops.fluid.bake_all()` after making the domain active.
 - Freeing uses `bpy.ops.fluid.free_all()` after making the domain active.
 
 ### Runtime self-test
 
-`blastfx/core/blender_api.py` creates temporary domain and flow meshes, initializes their Fluid modifiers, checks the expected RNA attributes, and removes the temporary objects. `Create Blast` runs this before modifying the scene.
+`blastfx/core/blender_api.py` creates temporary domain and flow meshes,
+initializes their Fluid modifiers, checks the expected RNA attributes, and
+removes the temporary objects. `Create Blast` runs this before modifying the
+scene.
 
-The runtime self-test also verifies every domain and flow RNA field used by the builders, the `bpy.ops.fluid.bake_all()` / `free_all()` operators, and the Principled Volume sockets required by the Cycles output material. Pure-Python checks cannot replace running this audit inside the target Blender build.
+The runtime self-test also verifies every domain and flow RNA field used by the
+builders, the `bpy.ops.fluid.bake_all()` / `free_all()` operators, and the
+Principled Volume sockets required by the Cycles output material. Pure-Python
+checks cannot replace running this audit inside the target Blender build.
 
 ### Asynchronous bake architecture
 

@@ -8,7 +8,7 @@ Blast FX builds ground-blast scenes from a coherent physical configuration — S
 
 ## Features
 
-- **Profiles, not magic numbers** — deterministic `ExplosionProfile` data (source topology, combustion, buoyancy, turbulence, timing, camera framing) drives the sim; `nuclear_ground` preset rides the LARGE profile.
+- **Profiles, not magic numbers** — deterministic `ExplosionProfile` data (source topology, combustion, buoyancy, turbulence, timing, camera framing) drives the sim; `large_ground` preset rides the LARGE profile.
 - **Physically timed secondary FX** — flash, shockwave geometry, camera impulse and dust derive their timing from the physical event timeline, not from independent keyframes.
 - **Background bake worker** — one non-blocking job at a time, atomic status, cancel-safe; incomplete generations are never reported as baked.
 - **Cache you can trust** — state-hash identity covers envelope, profile, seed, FPS, gravity and units; stale or lying caches are detected and invalidated on file load.
@@ -28,7 +28,7 @@ The add-on enforces one Blender unit = one metre. Scenes with other `scale_lengt
 2. In Blender: `Edit > Preferences > Add-ons > Install...` and select the zip.
 3. Enable **Blast FX**.
 
-The repository also ships ready-made example scenes under `examples/` (`test_small`, `test_medium`, `test_large`, `test_large_event`) — open one, press *Bake Simulation*, and render.
+The repository also ships ready-made example scenes under `examples/` (`test_small`, `test_medium`, `test_large`, `test_large_event`) — open one, press **Bake Simulation**, and render.
 
 ## Quick start
 

@@ -103,7 +103,8 @@ items and caveats are annotated inline.
 Originally built as a dedicated nuclear/mushroom system (multi-stage fireball,
 animated cap, base surge, rolling turbulence). Those specialist components were
 later removed in a design simplification; the LARGE profile now drives the
-`nuclear_ground` preset directly through the conventional pipeline.
+`large_ground` preset (renamed from `nuclear_ground`; values unchanged)
+directly through the conventional pipeline.
 - [x] LARGE profile and domain envelope (`core/explosion_profile.py`,
       `core/domain_envelope.py`)
 - [x] rising column (`use_stem`, `simulation/stem.py`)
@@ -116,22 +117,22 @@ later removed in a design simplification; the LARGE profile now drives the
 - [x] camera shake (`animation/camera.py`)
 - [x] heat distortion (`animation/heat_distortion.py`, volume-based,
       physically timed via `phase_frames`)
-- [x] atmospheric distortion (event-scale distortion volume
-      `build_atmospheric_distortion` in `animation/heat_distortion.py`, gated
-      by profile (LARGE 0.3); the compositor hook stays a stub by
-      design — the volume approach replaces it)
+- [x] compositor hook (`build_heat_distortion_compositor` in
+      `animation/heat_distortion.py` stays a stub by design — the volume
+      approach replaces it)
 - [x] volumetric lighting (`animation/dust_light.py`)
 
 ### Milestone 6 — Production
 - [x] preset save/load (`BLASTFX_OT_save_preset`, `presets/apply.py`, JSON presets)
 - [x] batch generation (`BLASTFX_OT_create_batch`: count/spacing/seed-step
       dialog, seeds restored afterwards)
-- [x] batch baking (`core/bake_queue.py` + `start_batch_bake`; the one-bake-at-
+- [x] batch baking (`core/bake_queue.py` + `core/bake_job.py::start_batch_bake`; the one-bake-at-
       a-time worker invariant is preserved, the queue sequences starts —
       verified end-to-end headless: two blasts queued, both caches BAKED)
 - [x] robust cache recovery (`core/cache_layout.py::recover_generation` +
-      `recover_caches` on `load_post`; invalidates broken generations, lying
-      complete markers, stale job dirs; unit-tested + headless scenario test)
+      `core/cache.py::recover_caches` on `load_post`; invalidates broken
+      generations, lying complete markers, stale job dirs; unit-tested +
+      headless scenario test)
 - [x] documentation (`docs/`)
 - [x] example .blend scenes (`tools/make_examples.py` →
       `examples/test_{small,medium,large,large_event}.blend`: deterministic seeds,
