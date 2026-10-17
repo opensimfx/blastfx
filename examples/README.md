@@ -18,10 +18,11 @@ panel (or `bpy.ops.blastfx.bake()`), then scrub the timeline to review.
 ## Scenes
 
 - **test_small.blend** — `small` preset (GROUND): compact ground blast with a
-  fireball and shockwave, seed 1001. Best first bake; lowest domain resolution, so
-  it completes fastest.
-- **test_medium.blend** — `medium` preset (FUEL): fuel/vehicle-scale blast with a
-  ground surge, seed 2002. Demonstrates buoyant smoke rise and dust motion.
+  fireball and shockwave, seed 1001. Best first bake; lowest domain
+  resolution, so it completes fastest.
+- **test_medium.blend** — `medium` preset (FUEL): fuel/vehicle-scale blast
+  with a ground surge, seed 2002. Demonstrates buoyant smoke rise and dust
+  motion.
 - **test_large.blend** — `large` preset (FUEL, "Medium Ground Blast"): medium
   ground blast with a fireball, ground surge and smoke, seed 3003.
 - **test_large_event.blend** — `large_ground` preset (LARGE): large ground

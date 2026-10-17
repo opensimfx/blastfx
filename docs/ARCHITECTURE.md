@@ -27,41 +27,50 @@ Blender / Mantaflow / Renderer
 ## 2. Core layers
 
 ### Presentation
+
 `ui/`
 
 Blender panels, menus and status presentation.
 
 ### Domain model
+
 `addon/properties.py`
 
-Artist-facing state. This should remain renderer/simulation agnostic where possible.
+Artist-facing state. This should remain renderer/simulation agnostic
+where possible.
 
 ### Orchestration
+
 `core/explosion.py`
 
 Coordinates creation, rebuild, deletion and synchronization.
 
 ### Simulation
+
 `simulation/`
 
 Builds Mantaflow domains, emitters, velocity systems and cache configuration.
 
 ### Appearance
+
 `materials/`
 
 Creates and updates volume, fire, smoke, dust and shockwave materials.
 
 ### Animation
+
 `animation/`
 
 Controls flash, shockwave expansion, camera impulse, exposure and timing.
 
 ### Presets
+
 `presets/`
 
 Converts a preset into engine configuration.
 
 ### Infrastructure
+
 `utils/`, `core/cache.py`, `core/validation.py`
 
 Naming, logging, compatibility, cache paths and validation.
@@ -91,6 +100,7 @@ BlastFX
 ## 4. Stable identity
 
 Every blast has:
+
 - `blast_id`
 - `blast_type`
 - `preset_id`
@@ -98,6 +108,7 @@ Every blast has:
 - `version`
 
 Objects receive:
+
 - `blastfx_role`
 - `blastfx_id`
 - `blastfx_component`
@@ -119,6 +130,7 @@ Engine Version
 ```
 
 A rebuild should:
+
 1. validate the controller
 2. preserve user-authored external scene objects
 3. remove/recreate generated components
@@ -130,8 +142,10 @@ A rebuild should:
 
 Draft, Preview and Final are quality profiles, not separate simulation engines.
 
-- **Draft** — UI and structural validation: 64–96 resolution, noise off, short frame range.
-- **Preview** — motion and shape: 96–160 resolution, optional noise, normal frame range.
+- **Draft** — UI and structural validation: 64–96 resolution, noise off, short
+  frame range.
+- **Preview** — motion and shape: 96–160 resolution, optional noise, normal
+  frame range.
 - **Final** — rendering: 256+ resolution, noise enabled, full frame range.
 
 Actual defaults must remain configurable. The underlying physical
@@ -177,7 +191,8 @@ CacheManager
 
 ## 8. Error model
 
-Use structured validation results rather than exceptions for expected artist errors.
+Use structured validation results rather than exceptions for expected
+artist errors.
 
 ```python
 ValidationResult(
@@ -192,6 +207,7 @@ Unexpected programming errors should still raise.
 ## 9. Security / scene safety
 
 Blast FX should only mutate:
+
 - its own generated collection
 - explicitly selected Blast FX controllers
 - scene properties belonging to Blast FX
@@ -202,7 +218,8 @@ Never delete arbitrary selected objects as part of a rebuild.
 
 The engine contains a dedicated `core.physics` layer.
 
-Its responsibility is to translate artist intent into internally coherent simulation quantities.
+Its responsibility is to translate artist intent into internally coherent
+simulation quantities.
 
 ```text
 PhysicalConfig
@@ -220,13 +237,15 @@ derive_physics()
 SimulationConfig
 ```
 
-The physical model must not be confused with a validated engineering blast-effects model.
+The physical model must not be confused with a validated engineering
+blast-effects model.
 
 ## 11. Determinism
 
 The generated controller stores a hash of its physical configuration.
 
 The hash includes:
+
 - preset version
 - add-on version
 - Blender version
@@ -249,24 +268,34 @@ physical event
     +--> light pulse
 ```
 
-The flash, shockwave, camera shake and smoke should not each have independent arbitrary timing.
+The flash, shockwave, camera shake and smoke should not each have
+independent arbitrary timing.
 
 ## 13. User-facing controls
 
 ### Explosion
+
 - type, preset, scale, intensity, speed, start frame, duration, seed
 
 ### Components
-- fireball, rising column, ground surge, dust, shockwave, debris, flash, heat distortion
+
+- fireball, rising column, ground surge, dust, shockwave, debris, flash,
+  heat distortion
 
 ### Simulation
-- quality profile, resolution override, noise level, turbulence, cache directory, frame range
+
+- quality profile, resolution override, noise level, turbulence, cache
+  directory, frame range
 
 ### Appearance
-- fire temperature, fire color, smoke color, smoke density, blackbody strength, volume contrast
+
+- fire temperature, fire color, smoke color, smoke density, blackbody
+  strength, volume contrast
 
 ### Cinematic FX
-- flash, camera shake, exposure impulse, atmospheric distortion, ground illumination
+
+- flash, camera shake, exposure impulse, heat distortion, ground
+  illumination
 
 ## 14. UI layout
 
@@ -325,7 +354,8 @@ The add-on targets Blender 5.2 and keeps Mantaflow RNA access centralized.
 
 Verified API model:
 
-- `FluidModifier.fluid_type` must be set to `DOMAIN` or `FLOW` before reading `domain_settings` or `flow_settings`.
+- `FluidModifier.fluid_type` must be set to `DOMAIN` or `FLOW` before
+  reading `domain_settings` or `flow_settings`.
 - Gas controls such as `alpha`, `beta`, `vorticity`, `burning_rate`,
   `flame_smoke`, `flame_vorticity`, `flame_ignition`, and `flame_max_temp` are
   properties of `FluidDomainSettings`; there is no `gas_settings` object in the
