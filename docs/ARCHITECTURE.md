@@ -55,7 +55,8 @@ Builds Mantaflow domains, emitters, velocity systems and cache configuration.
 
 `materials/`
 
-Creates and updates volume, fire, smoke, dust and shockwave materials.
+Creates and updates the domain volume material (smoke ColorRamp + flame-grid
+emission) and shockwave materials.
 
 ### Animation
 
@@ -85,7 +86,8 @@ BlastFX
     ├── Controller
     ├── Simulation
     │   ├── Domain
-    │   ├── Fireball
+    │   ├── Ground (collider)
+    │   ├── Burst (fireball caps + particles)
     │   ├── Stem
     │   └── Dust
     ├── FX
@@ -164,7 +166,8 @@ ExplosionEngine
 
 SimulationEngine
   build_domain()
-  build_fireball()
+  build_ground()
+  build_burst()
   build_stem()
   build_dust()
   configure()
@@ -173,9 +176,6 @@ SimulationEngine
 
 MaterialEngine
   build_volume()
-  build_fire()
-  build_dust()
-  build_shockwave()
 
 FXEngine
   build_flash()

@@ -219,6 +219,39 @@ Blast FX uses a deterministic physically informed profile for each explosion typ
 
 All profile fields are serialized into cache identity and contribute to the deterministic domain envelope. Consequently, changing a source, combustion, timing, or morphology control cannot reuse an incompatible bake.
 
+## Mantaflow mapping (0.2.0 calibration)
+
+How the profile fields land in solver controls, benchmarked against researched expert workflows (`BLENDER_EXPLOSION_RESEARCH.md`) and calibrated with headless bake probes (`examples/burst_probe/`):
+
+- **Fuel injection**: one 2-5 frame burst of fast, short-lived particles
+  (`simulation/burst.py`) feeding a PARTICLES flow — no continuous mesh
+  inflow for the fireball. Injection length is `min(5, fps*source_duration*0.35)`
+  with per-profile overrides; per-variant particle seeds come from the artist
+  seed so each blast is a reproducible, non-identical sibling.
+- **Vorticity**: expert ceiling 0.2 (froth above). Artist turbulence maps as
+  `clamp(turbulence * profile_scale * 0.12, 0, 0.2)` — 1.0 lands mid-band.
+- **Flow heat**: burst flow temperature is profile flow heat
+  (GROUND 1.0 / FUEL 0.85-1.0) scaled by the artist's temperature factor.
+  Calibrated against bake matrix evidence; the researched 0.05 figure applies
+  to tall continuous inflows, not one-frame bursts.
+- **Buoyancy**: heat buoyancy (beta) 2.2-3.1 per profile, density buoyancy
+  1.0-1.3; calibrated so fireballs rise through their own smoke instead of
+  stalling.
+- **Dissolve**: smoke dissolves across the second half of the timeline
+  (`timeline * fps * 0.5`, minimum 12 frames), so the plume lingers through
+  the last hero frame instead of vanishing.
+- **Ground interaction**: thin-cube collision effector at ground level; dust
+  emits with negative initial temperature (-2.0 to -2.5) so the base surge
+  hugs the floor instead of launching; debris particles fall onto the ground
+  via a plain COLLISION modifier.
+- **Fire rendering**: the Mantaflow `flame` grid drives emission strength
+  (multiplier ~5) through the domain's volume material; smoke color/density
+  runs through a per-profile ColorRamp with Fresnel edge lightening. The
+  temperature blackbody path stays wired but off by default.
+- **Burst count**: profile counts describe the interactive DRAFT bake;
+  PREVIEW doubles and FINAL quadruples them so hero-quality large blasts
+  reach the researched 8-10k particle band.
+
 ## Large-blast scope
 
 The LARGE profile (the `large_ground` preset) is a **visual representation** of a large-scale atmospheric blast.

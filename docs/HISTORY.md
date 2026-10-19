@@ -154,10 +154,37 @@ directly through the conventional pipeline.
 
 ### Milestone 7 — Optional
 
-- [ ] Geometry Nodes debris (current debris in `simulation/debris.py` is
-      particle-based)
+- [ ] Geometry Nodes debris (0.2.0 consolidated mesh-shard debris lives in
+      `simulation/particles.py`)
 - [ ] Asset Browser integration
 - [ ] custom emitter collections
 - [ ] Eevee adapter
 - [ ] command-line workflow (headless dev scripts exist in `tools/`; no
       user-facing CLI)
+
+### Milestone 8 — Cinematic rework (0.2.0)
+
+Mantaflow rework benchmarked against researched expert workflows
+(`BLENDER_EXPLOSION_RESEARCH.md`; Pawel Chądzyński, Iridesium, CG Geek,
+CrossMind Ch. 7). Built in phases 0-5, each verified by headless probes and
+render evidence under `examples/burst_probe/`:
+
+- [x] presets honor JSON resolution keys; render settings applied in create
+      path; glare/exposure/camera FX default ON (bake turntables under
+      `examples/before/` as evidence of the "before" look)
+- [x] particle-driven burst replaces mesh-inflow fireball (`simulation/burst.py`;
+      `simulation/fireball.py` deleted): equator-split caps (upper/lower),
+      one particle system per cap feeding a PARTICLES flow, burst window 2-5
+      frames, real per-variant seeds
+- [x] shading rewrite (`materials/volume.py`): density ColorRamp + Fresnel
+      edge lightening, flame-grid emission fire; profile-derived
+      ShadingConfig (T*400 blackbody hack retired)
+- [x] domain physics into expert bands: vorticity clamp 0-0.2, profile flow
+      heat, derived dissolve (half-timeline), profile flame_ignition
+- [x] ground collider (`simulation/ground.py`, Mantaflow EFFECTOR + particle
+      COLLISION modifier, domain bottom border off), ground-hugging dust with
+      negative temperature, consolidated 4-variant shard debris, GROUND burst
+      retuned from bake matrix (4-frame emission / 10-frame lifetime /
+      flip-lower / fuel 2.0)
+- [x] tests 36; hero burst-count scaling per quality tier (LARGE FINAL 9600)
+- [x] version 0.2.0
