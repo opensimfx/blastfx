@@ -113,9 +113,9 @@ class BLASTFX_Props(PropertyGroup):
     use_shockwave: BoolProperty(name="Shockwave", default=True)
     use_debris: BoolProperty(name="Debris", default=False)
     use_flash: BoolProperty(name="Flash", default=True)
-    use_camera_fx: BoolProperty(name="Camera FX", default=False)
-    use_exposure: BoolProperty(name="Exposure Impulse", default=False)
-    use_heat_distortion: BoolProperty(name="Heat Distortion", default=False)
+    use_camera_fx: BoolProperty(name="Camera FX", default=True)
+    use_exposure: BoolProperty(name="Exposure Impulse", default=True)
+    use_heat_distortion: BoolProperty(name="Heat Distortion", default=True)
 
     turbulence: FloatProperty(
         name="Turbulence",
