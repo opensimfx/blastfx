@@ -3,6 +3,12 @@
 import bpy
 
 
+def set_particle_seed(settings, seed):
+    """ParticleSettings.seed is unavailable on some Blender builds (5.2); guard it."""
+    if hasattr(settings, "seed"):
+        settings.seed = int(seed) % 2147483647
+
+
 def _add_particle_system(obj, name, settings_fn):
     """Add a particle system to an object and configure it."""
     bpy.context.view_layer.objects.active = obj
@@ -81,7 +87,7 @@ def build_debris_particles(context, collection, controller, config):
         # Gravity and drag.
         settings.effector_weights.gravity = 1.0
         settings.mass = 0.5
-        settings.seed = config["numerical"].seed
+        set_particle_seed(settings, config["numerical"].seed)
 
     _add_particle_system(emitter, "DebrisParticles", configure)
     return emitter
@@ -127,7 +133,7 @@ def build_spark_particles(context, collection, controller, config):
         settings.child_type = "NONE"
         settings.effector_weights.gravity = 0.3
         settings.mass = 0.01
-        settings.seed = config["numerical"].seed + 3
+        set_particle_seed(settings, config["numerical"].seed + 3)
 
     _add_particle_system(emitter, "SparkParticles", configure)
     return emitter
