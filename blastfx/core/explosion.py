@@ -11,6 +11,7 @@ from ..simulation.physical_config import build_simulation_config
 from ..animation import build_animation
 from .domain_envelope import build_domain_envelope, envelope_state
 from .explosion_profile import profile_for, profile_state
+from ..render.settings import configure_render_settings
 
 
 def create_explosion(context):
@@ -27,6 +28,10 @@ def create_explosion(context):
     api_errors = runtime_self_test()
     if api_errors:
         raise RuntimeError("Blender/Mantaflow API self-test failed: " + "; ".join(api_errors))
+
+    # Volume-heavy explosions need Cycles volume settings; sample count
+    # follows the active quality (DRAFT 32 / PREVIEW 128 / FINAL 512).
+    configure_render_settings(context.scene, quality=props.quality)
 
     physical_config = PhysicalConfig(
         scale_m=float(props.scale),
