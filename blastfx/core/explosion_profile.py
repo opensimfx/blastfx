@@ -4,6 +4,63 @@ from dataclasses import asdict, dataclass
 
 
 @dataclass(frozen=True)
+class ShadingConfig:
+    """Volume shading inputs derived per profile (plan T2.5).
+
+    Fire renders from the Mantaflow `flame` grid through Emission; smoke
+    colors through a density ColorRamp (light thin wisps -> near-black
+    dense core). Blackbody stays wired but off until visually tuned:
+    flame-grid emission + blackbody together double the fire exposure.
+    """
+    smoke_ramp: tuple  # ((position, rgba), ...) ascending positions
+    density_multiplier: float
+    temperature_multiplier: float = 1.0
+    blackbody_intensity: float = 0.0
+    flame_color: tuple = (1.0, 0.34, 0.03, 1.0)
+    flame_multiplier: float = 5.0
+    anisotropy: float = 0.0
+
+    def as_dict(self):
+        return asdict(self)
+
+
+SHADING = {
+    "GROUND": ShadingConfig(
+        smoke_ramp=(
+            (0.0, (0.45, 0.36, 0.28, 1.0)),
+            (0.18, (0.34, 0.24, 0.16, 1.0)),
+            (0.55, (0.09, 0.06, 0.045, 1.0)),
+            (1.0, (0.015, 0.01, 0.008, 1.0)),
+        ),
+        density_multiplier=0.35,
+    ),
+    "FUEL": ShadingConfig(
+        smoke_ramp=(
+            (0.0, (0.50, 0.45, 0.40, 1.0)),
+            (0.18, (0.30, 0.25, 0.20, 1.0)),
+            (0.55, (0.08, 0.06, 0.05, 1.0)),
+            (1.0, (0.012, 0.01, 0.008, 1.0)),
+        ),
+        density_multiplier=0.30,
+    ),
+    "LARGE": ShadingConfig(
+        smoke_ramp=(
+            (0.0, (0.55, 0.50, 0.44, 1.0)),
+            (0.18, (0.36, 0.31, 0.26, 1.0)),
+            (0.55, (0.11, 0.09, 0.075, 1.0)),
+            (1.0, (0.014, 0.012, 0.01, 1.0)),
+        ),
+        density_multiplier=0.22,
+    ),
+}
+
+
+def shading_for(explosion_type: str) -> ShadingConfig:
+    """Return the stable shading configuration for an explosion type."""
+    return SHADING.get(explosion_type, SHADING["FUEL"])
+
+
+@dataclass(frozen=True)
 class ExplosionProfile:
     source_radius: float
     source_duration: float
