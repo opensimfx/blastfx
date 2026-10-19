@@ -16,3 +16,6 @@ __pycache__/
 blastfx_cache/
 blastfx_visual_validation/
 waveletNoiseTile.bin
+
+# Local plan / agent artifacts
+.opencode/
