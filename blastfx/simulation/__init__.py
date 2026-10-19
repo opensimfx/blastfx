@@ -1,4 +1,5 @@
 from .domain import build_domain
+from .ground import build_ground
 from .burst import build_burst
 from .stem import build_stem
 from .dust import build_dust
@@ -77,6 +78,8 @@ def build_explosion(context, collection, controller, props):
     configure_cache(domain, context, collection, controller, config, props.quality)
 
     # Conventional explosion components
+    build_ground(context, collection, controller, config, domain)
+
     if props.use_fireball:
         build_burst(context, collection, controller, config)
 
