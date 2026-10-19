@@ -24,6 +24,9 @@ class SimulationConfig:
     temperature_scale: float
     density_scale: float
     seed: int
+    burst_count: int
+    burst_normal_velocity: float
+    burst_random_velocity: float
 
 
 def build_simulation_config(
@@ -65,4 +68,9 @@ def build_simulation_config(
         temperature_scale=max(0.1, min(10.0, float(fire_temperature) * (multiplier.temperature if multiplier else (1.0 + intensity)))),
         density_scale=max(0.1, min(10.0, float(smoke_density) * (multiplier.density if multiplier else 1.0))),
         seed=int(seed),
+        burst_count=max(200, int(multiplier.burst_count if multiplier else 1500)),
+        # Particle speeds are domain-relative like the benchmarks (4-6 m/s in
+        # a ~2 m domain); scale up only when the characteristic speed is higher.
+        burst_normal_velocity=max(0.5, float(multiplier.burst_normal_velocity if multiplier else 4.5) * max(1.0, derived.characteristic_velocity_mps)),
+        burst_random_velocity=max(0.0, float(multiplier.burst_random_velocity if multiplier else 4.5) * max(1.0, derived.characteristic_velocity_mps)),
     )

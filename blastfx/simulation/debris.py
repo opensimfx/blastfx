@@ -44,6 +44,7 @@ def build_debris(context, collection, controller, config):
     pset.effector_weights.gravity = 1.0
     pset.normal_factor = 1.0
     pset.brownian_factor = 0.1 if hasattr(pset, "brownian_factor") else 0.0
+    pset.seed = config["numerical"].seed + 11
 
     shard = primitive_flow(
         collection,

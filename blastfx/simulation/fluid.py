@@ -40,9 +40,11 @@ def configure_fluid_modifier(obj, fluid_type):
 def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
                    fuel=0.0, velocity=(0.0, 0.0, 0.0), velocity_normal=0.0,
                    velocity_random=0.0, surface_distance=1.0,
-                   volume_density=1.0, subframes=2):
+                   volume_density=1.0, subframes=2, flow_source="MESH",
+                   particle_system=None):
     """Configure only FluidFlowSettings properties documented by Blender 5.2."""
     required = {
+        "flow_source": flow_source,
         "flow_type": flow_type,
         "flow_behavior": "INFLOW",
         "temperature": max(-10.0, min(10.0, float(temperature))),
@@ -57,6 +59,8 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
         "subframes": max(0, min(200, int(subframes))),
         "use_inflow": True,
     }
+    if particle_system is not None:
+        required["flow_particle_system"] = particle_system
     for key, value in required.items():
         if not hasattr(flow, key):
             raise RuntimeError(
@@ -67,6 +71,24 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
         except Exception as exc:
             raise RuntimeError(f"Unable to set FluidFlowSettings.{key}: {exc}") from exc
     return flow
+
+
+def keyframe_flow_active(flow, start_frame, end_frame):
+    """Gate a flow's "Use Flow" (use_active) to [start, end].
+
+    Used for the burst injection: the flow block burns only while the burst
+    particles exist, then the fuel is off (equality with a real explosion's
+    single initial blast).
+    """
+    start = int(start_frame)
+    end = max(start + 1, int(end_frame))
+    flow.use_active = False
+    flow.keyframe_insert("use_active", frame=start - 1)
+    flow.use_active = True
+    flow.keyframe_insert("use_active", frame=start)
+    flow.keyframe_insert("use_active", frame=end)
+    flow.use_active = False
+    flow.keyframe_insert("use_active", frame=end + 1)
 
 
 def keyframe_inflow(flow, start_frame, end_frame):
