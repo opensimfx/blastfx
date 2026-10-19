@@ -19,6 +19,8 @@ def _animation_config(context, props):
         ambient=AmbientConditions(gravity=gravity_magnitude(context.scene.gravity)),
     ))
     profile = profile_for(props.explosion_type)
+    fps = context.scene.render.fps
+    timeline_duration_s = physical.characteristic_time_s / max(float(props.speed), 0.05)
     numerical = build_simulation_config(
         physical,
         props.quality,
@@ -29,8 +31,9 @@ def _animation_config(context, props):
         props.smoke_density,
         props.fire_temperature,
         profile,
+        timeline_duration_s=timeline_duration_s,
+        fps=context.scene.render.fps / context.scene.render.fps_base,
     )
-    timeline_duration_s = physical.characteristic_time_s / max(float(props.speed), 0.05)
     return {
         "type": props.explosion_type,
         "preset": props.preset_id,

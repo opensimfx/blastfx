@@ -63,7 +63,7 @@ def build_domain(context, collection, controller, config):
         gravity=Vector(context.scene.gravity),
         alpha=max(-5.0, min(5.0, numerical.buoyancy_density)),
         beta=max(-5.0, min(5.0, numerical.buoyancy_heat)),
-        vorticity=max(0.0, min(4.0, numerical.turbulence_strength)),
+        vorticity=max(0.0, min(0.2, numerical.turbulence_strength)),
         burning_rate=max(0.01, min(4.0, numerical.burning_rate)),
         flame_smoke=max(0.0, min(8.0, numerical.flame_smoke)),
         flame_vorticity=max(0.0, min(2.0, numerical.flame_vorticity)),

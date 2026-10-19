@@ -47,6 +47,8 @@ def create_explosion(context):
 
     derived = derive_physics(physical_config)
     profile = profile_for(props.explosion_type)
+    fps = context.scene.render.fps / context.scene.render.fps_base
+    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
     numerical = build_simulation_config(
         derived,
         props.quality,
@@ -57,9 +59,9 @@ def create_explosion(context):
         props.smoke_density,
         props.fire_temperature,
         profile,
+        timeline_duration_s=timeline_duration,
+        fps=fps,
     )
-    fps = context.scene.render.fps / context.scene.render.fps_base
-    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
     frame_start = int(props.start_frame)
     frame_end = frame_start + max(1, int(round(timeline_duration * fps)))
     domain_envelope = build_domain_envelope(
@@ -162,6 +164,8 @@ def rebuild_explosion(context, controller):
 
     derived = derive_physics(physical_config)
     profile = profile_for(props.explosion_type)
+    fps = context.scene.render.fps / context.scene.render.fps_base
+    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
     numerical = build_simulation_config(
         derived,
         props.quality,
@@ -172,9 +176,9 @@ def rebuild_explosion(context, controller):
         props.smoke_density,
         props.fire_temperature,
         profile,
+        timeline_duration_s=timeline_duration,
+        fps=fps,
     )
-    fps = context.scene.render.fps / context.scene.render.fps_base
-    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
     frame_start = int(props.start_frame)
     frame_end = frame_start + max(1, int(round(timeline_duration * fps)))
     domain_envelope = build_domain_envelope(
