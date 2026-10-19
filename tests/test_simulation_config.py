@@ -44,3 +44,21 @@ def test_artist_simulation_controls_reach_derived_configuration():
     assert config.turbulence_strength > 0.7
     assert config.density_scale == 2.0
     assert config.temperature_scale > 3.0
+
+
+def test_burst_config_reaches_derived_configuration():
+    physical = derive_physics(
+        PhysicalConfig(scale_m=10.0, reference_energy=1.0, intensity=2.0, duration_s=5.0)
+    )
+    config = build_simulation_config(physical, "PREVIEW", 128, 1, 7)
+
+    # No profile: sane benchmark defaults.
+    assert config.burst_count >= 1500
+    # Normal burst speed scales up with the characteristic velocity.
+    assert config.burst_normal_velocity == 4.5 * max(1.0, config.characteristic_velocity_mps)
+    assert config.burst_random_velocity == 4.5 * max(1.0, config.characteristic_velocity_mps)
+
+    same = build_simulation_config(physical, "PREVIEW", 128, 1, 7)
+    assert (config.burst_count, config.burst_normal_velocity, config.burst_random_velocity) == (
+        same.burst_count, same.burst_normal_velocity, same.burst_random_velocity
+    )

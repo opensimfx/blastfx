@@ -65,8 +65,9 @@ def build_debris_particles(context, collection, controller, config):
     def configure(settings):
         settings.type = "EMITTER"
         settings.count = 80
-        settings.frame_start = 1
-        settings.frame_end = max(2, int(total_frames * 0.15))
+        start = max(1, int(config.get("start_frame", 1)))
+        settings.frame_start = start
+        settings.frame_end = start + max(2, int(total_frames * 0.15))
         settings.lifetime = total_frames
         settings.lifetime_random = 0.4
         settings.physics_type = "NEWTON"
@@ -80,6 +81,7 @@ def build_debris_particles(context, collection, controller, config):
         # Gravity and drag.
         settings.effector_weights.gravity = 1.0
         settings.mass = 0.5
+        settings.seed = config["numerical"].seed
 
     _add_particle_system(emitter, "DebrisParticles", configure)
     return emitter
@@ -111,8 +113,9 @@ def build_spark_particles(context, collection, controller, config):
     def configure(settings):
         settings.type = "EMITTER"
         settings.count = 200
-        settings.frame_start = 1
-        settings.frame_end = max(2, int(total_frames * 0.05))
+        start = max(1, int(config.get("start_frame", 1)))
+        settings.frame_start = start
+        settings.frame_end = start + max(2, int(total_frames * 0.05))
         settings.lifetime = int(total_frames * 0.4)
         settings.lifetime_random = 0.6
         settings.physics_type = "NEWTON"
@@ -124,6 +127,7 @@ def build_spark_particles(context, collection, controller, config):
         settings.child_type = "NONE"
         settings.effector_weights.gravity = 0.3
         settings.mass = 0.01
+        settings.seed = config["numerical"].seed + 3
 
     _add_particle_system(emitter, "SparkParticles", configure)
     return emitter

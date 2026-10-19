@@ -1,5 +1,5 @@
 from .domain import build_domain
-from .fireball import build_fireball
+from .burst import build_burst
 from .stem import build_stem
 from .dust import build_dust
 from .shockwave import build_shockwave
@@ -73,7 +73,7 @@ def build_explosion(context, collection, controller, props):
 
     # Conventional explosion components
     if props.use_fireball:
-        build_fireball(context, collection, controller, config)
+        build_burst(context, collection, controller, config)
 
     if props.use_stem:
         build_stem(context, collection, controller, config)
