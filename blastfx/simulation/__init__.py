@@ -4,7 +4,6 @@ from .burst import build_burst
 from .stem import build_stem
 from .dust import build_dust
 from .shockwave import build_shockwave
-from .debris import build_debris
 from .particles import build_debris_particles, build_spark_particles
 from .physical_config import build_simulation_config
 from .cache import configure_cache
@@ -93,7 +92,8 @@ def build_explosion(context, collection, controller, props):
         build_shockwave(context, collection, controller, config)
 
     if props.use_debris:
-        build_debris(context, collection, controller, config)
+        # One collection-variant particle system (4 tumbling shard meshes)
+        # covers debris; the old single-shard emitter was merged into it.
         build_debris_particles(context, collection, controller, config)
     build_spark_particles(context, collection, controller, config)
 
