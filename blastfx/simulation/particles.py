@@ -29,8 +29,11 @@ def build_debris_particles(context, collection, controller, config):
     fps = context.scene.render.fps / context.scene.render.fps_base
     total_frames = max(1, int(duration_s * fps))
 
-    # Emitter object (invisible sphere at explosion center).
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r * 0.1, location=controller.location)
+    # Emitter object (invisible sphere, raised above the ground line so
+    # debris never starts underneath the ground collider).
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=r * 0.1, location=controller.location + (0.0, 0.0, r * 0.1)
+    )
     emitter = bpy.context.active_object
     emitter.name = f"Blast_{blast_id}_DebrisEmitter"
     emitter.hide_render = True
@@ -66,11 +69,15 @@ def build_debris_particles(context, collection, controller, config):
         bm.free()
         obj = bpy.data.objects.new(f"DebrisMesh_{i}", mesh)
         debris_col.objects.link(obj)
+        # Charred dark material so shards read against smoke.
+        material = bpy.data.materials.new(f"DebrisMesh_{i}_Material")
+        material.diffuse_color = (0.12, 0.08, 0.05, 1.0)
+        obj.data.materials.append(material)
         variants.append(obj)
 
     def configure(settings):
         settings.type = "EMITTER"
-        settings.count = 80
+        settings.count = 200
         start = max(1, int(config.get("start_frame", 1)))
         settings.frame_start = start
         settings.frame_end = start + max(2, int(total_frames * 0.15))
@@ -80,9 +87,24 @@ def build_debris_particles(context, collection, controller, config):
         settings.normal_factor = 2.0
         settings.factor_random = 0.8
         settings.tangent_factor = 0.5
+        # Tumbling shards: random spin + dynamic rotation (CG Geek debris).
+        settings.particle_size = max(r * 0.05, 0.01)
+        settings.size_random = 0.5
+        settings.use_rotations = True
+        settings.use_dynamic_rotation = True
+        settings.angular_velocity_mode = "RAND"
+        settings.angular_velocity_factor = 5.0
+        if hasattr(settings, "rotation_factor_random"):
+            settings.rotation_factor_random = 1.0
+        if hasattr(settings, "brownian_factor"):
+            settings.brownian_factor = 0.2
+        if hasattr(settings, "damping"):
+            settings.damping = 0.05
         settings.render_type = "COLLECTION"
         settings.instance_collection = debris_col
         settings.use_collection_count = True
+        if hasattr(settings, "use_collection_pick_random"):
+            settings.use_collection_pick_random = True
         settings.child_type = "NONE"
         # Gravity and drag.
         settings.effector_weights.gravity = 1.0
@@ -101,7 +123,9 @@ def build_spark_particles(context, collection, controller, config):
     fps = context.scene.render.fps / context.scene.render.fps_base
     total_frames = max(1, int(duration_s * fps))
 
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r * 0.05, location=controller.location)
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=r * 0.05, location=controller.location + (0.0, 0.0, r * 0.05)
+    )
     emitter = bpy.context.active_object
     emitter.name = f"Blast_{blast_id}_SparkEmitter"
     emitter.hide_render = True
