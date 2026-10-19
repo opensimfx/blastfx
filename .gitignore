@@ -12,10 +12,12 @@ __pycache__/
 *.blend2
 
 # Blast FX generated output
-*.zip
+dist/
 blastfx_cache/
 blastfx_visual_validation/
+examples/burst_probe/
 waveletNoiseTile.bin
 
 # Local plan / agent artifacts
 .opencode/
+BLENDER_EXPLOSION_RESEARCH.md

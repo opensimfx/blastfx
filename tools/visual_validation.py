@@ -693,6 +693,33 @@ def main():
         blastfx.unregister()
     (OUTPUT / "results.json").write_text(json.dumps(results, indent=2, default=str))
     print(f"VISUAL VALIDATION RESULTS: {OUTPUT / 'results.json'}", flush=True)
+    baseline = __import__("os").environ.get("BLASTFX_COMPARE")
+    if baseline:
+        # Regression mode: flag frames whose mean brightness or foreground
+        # coverage drifted beyond the threshold versus a previous results.json.
+        threshold = float(__import__("os").environ.get("BLASTFX_DELTA_THRESHOLD", "0.15"))
+        previous = json.loads(Path(baseline).expanduser().resolve().read_text(encoding="utf-8"))
+        old = {
+            (entry["preset"], entry["layer_mode"], render["frame"]): render["stats"]
+            for entry in previous for render in entry["sampled_frames"]
+        }
+        flagged = 0
+        for entry in results:
+            for render in entry["sampled_frames"]:
+                key = (entry["preset"], entry["layer_mode"], render["frame"])
+                prior = old.get(key)
+                if not prior:
+                    continue
+                drift = abs(render["stats"]["mean_rgb"] - prior["mean_rgb"])
+                cover = abs(render["stats"]["non_background"] - prior["non_background"])
+                if drift > threshold or cover > prior["non_background"] * 0.25 + 25:
+                    flagged += 1
+                    print(
+                        f"REGRESS {key}: mean_rgb {prior['mean_rgb']:.3f} -> "
+                        f"{render['stats']['mean_rgb']:.3f}, foreground {prior['non_background']} -> "
+                        f"{render['stats']['non_background']}"
+                    )
+        print(f"COMPARE {baseline}: {flagged} flagged frame(s)", flush=True)
 
 
 if "--render-scene" in sys.argv:

@@ -43,7 +43,11 @@ from blastfx.render.settings import configure_render_settings, configure_world, 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = REPO_ROOT / "examples"
-BEFORE_DIR = EXAMPLES / "before"
+# Hero-frame dir is env-overridable so "after" turntables can render beside
+# (never over) the committed examples/before evidence.
+BEFORE_DIR = Path(os.environ.get(
+    "BLASTFX_HERO_DIR", str(EXAMPLES / "before")
+))
 
 # Hero frames rendered for visual before/after regression: offsets relative
 # to the blast start frame (+5 fireball, +15 mature smoke, +40 decay).
@@ -133,7 +137,7 @@ def _bake_fluids():
 
 
 def _render_hero_frames(stem):
-    """Render the regression hero frames into examples/before/."""
+    """Render the regression hero frames into the hero dir (BLASTFX_HERO_DIR)."""
     scene = bpy.context.scene
     scene.render.resolution_x = TURN_WIDTH
     scene.render.resolution_y = TURN_HEIGHT
@@ -157,9 +161,17 @@ def build_scene(filename, preset_id, seed):
     configure_render_settings(scene, "PREVIEW")
     scene.cursor.location = (0.0, 0.0, 0.0)
 
+    path = EXAMPLES / filename
+    # Save BEFORE creating the blast: the cache root anchors to the blend's
+    # directory (project_cache_root). Created on an unsaved file, the bake
+    # lands in a temp session dir and save_as_mainfile's relative-path remap
+    # leaves the finished blend pointing at a dead folder (observed Oct 19:
+    # reopened turntables rendered with 0 .vdb files on disk).
+    bpy.ops.wm.save_as_mainfile(filepath=str(path))
+
     props = scene.blastfx
+    props.quality = "PREVIEW"  # before apply_preset: keeps preset resolutions un-halved
     apply_preset(props, preset_id)
-    props.quality = "PREVIEW"
     props.seed = seed
     props.start_frame = 1
 
@@ -174,15 +186,26 @@ def build_scene(filename, preset_id, seed):
     _add_sun(scene)
 
     _bake_fluids()
-    _render_hero_frames(Path(filename).stem)
 
-    path = EXAMPLES / filename
+    # Final save: the cache path becomes //blastfx_cache/... relative to the
+    # blend's own directory - fully portable from here on.
     bpy.ops.wm.save_as_mainfile(filepath=str(path))
+    # Hero renders run in a SECOND blender process (see main BLASTFX_RENDER_MODE):
+    # an in-process bake holds the full sim resident and the follow-up Cycles
+    # render was silently OOM-killed (observed on small, Oct 19). Saving first
+    # keeps the baked scene even if the render process dies.
     print(
         f"wrote {path} (preset={preset_id} seed={seed} "
         f"frames={scene.frame_start}-{scene.frame_end})",
         flush=True,
     )
+
+
+def render_scene(filename):
+    """Render-only stage: open the saved .blend and render hero frames."""
+    path = EXAMPLES / filename
+    bpy.ops.wm.open_mainfile(filepath=str(path))
+    _render_hero_frames(Path(filename).stem)
 
 
 def main():
@@ -192,6 +215,15 @@ def main():
     selected = SCENES if not only else tuple(
         s for s in SCENES if s[1] in only.split(",")
     )
+    if os.environ.get("BLASTFX_RENDER_MODE") == "render-only":
+        register()  # compat: custom props on saved scenes
+        try:
+            for filename, _preset_id, _seed in selected:
+                render_scene(filename)
+        finally:
+            unregister()
+        print("EXAMPLES RENDERED:", BEFORE_DIR, flush=True)
+        return
     register()
     try:
         for filename, preset_id, seed in selected:
