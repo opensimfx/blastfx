@@ -14,9 +14,8 @@ from .fluid import (
     add_mesh_object,
     configure_fluid_modifier,
     configure_flow,
-    keyframe_flow_active,
 )
-from .particles import _add_particle_system
+from .particles import _add_particle_system, set_particle_seed
 
 _CAP_SEGMENTS = 24
 _CAP_RINGS = 12
@@ -32,7 +31,7 @@ def _hemisphere(bm, radius, upper):
         v for v in bm.verts
         if (v.co.z < 0.0 if upper else v.co.z > 0.0)
     ]
-    bmesh.ops.delete(bm, verts=to_delete, context="VERTS")
+    bmesh.ops.delete(bm, geom=to_delete, context="VERTS")
 
 
 def _particle_seed(numerical_seed, suffix):
@@ -51,7 +50,7 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     fps = context.scene.render.fps / context.scene.render.fps_base
     radius = physical.characteristic_radius_m * profile.source_radius
     start = int(config["start_frame"])
-    emission, lifetime, flow_frames = profile.burst_timing(fps)
+    emission, lifetime, _ = profile.burst_timing(fps)
 
     name = component_name(blast_id, suffix)
     obj = add_mesh_object(
@@ -77,7 +76,7 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # particles would fight the buoyancy-driven ascension (research tip).
         settings.effector_weights.gravity = 0.0
         settings.mass = 0.1
-        settings.seed = _particle_seed(numerical.seed, suffix)
+        set_particle_seed(settings, _particle_seed(numerical.seed, suffix))
 
     psys = _add_particle_system(obj, f"{name}_psys", configure_particles)
 
@@ -87,17 +86,17 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     configure_flow(
         flow,
         flow_type="BOTH",
-        flow_source="PARTICLE_SYSTEM",
+        flow_source="PARTICLES",
         particle_system=psys,
         temperature=numerical.temperature_scale,
         density=numerical.density_scale,
         fuel=profile.fuel_amount,
         subframes=5,
     )
-    # Inject only while the burst particles fly; then Use Flow closes
-    # (a single blast, not a sustained inflow jet).
-    keyframe_flow_active(flow, start, start + flow_frames)
-
+    # The particle system IS the injection window: particles are seeded over
+    # `emission` frames and live `lifetime` frames, so smoke stops being fed
+    # once they die (verified empirically: cache sizes plateau after the last
+    # particle). Mesh inflow gating is unnecessary with PARTICLES sources.
     obj.hide_render = True
     obj.display_type = "WIRE"
     obj["blastfx_role"] = "burst_emitter"
