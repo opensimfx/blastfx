@@ -82,13 +82,16 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
 
     _, flow = configure_fluid_modifier(obj, "FLOW")
     # Initial velocity comes from the particle system; the cap mesh itself
-    # never injects (flow_source=PARTICLE_SYSTEM).
+    # never injects (flow_source=PARTICLE_SYSTEM). Research flow-heat trick:
+    # keep the injected temperature tiny (profile.flow_heat ~ 0.05, the
+    # Mantaflow "Flow Heat" slider maps to this RNA property) so buoyancy
+    # doesn't blow the fire out and burning stays visible longer.
     configure_flow(
         flow,
         flow_type="BOTH",
         flow_source="PARTICLES",
         particle_system=psys,
-        temperature=numerical.temperature_scale,
+        temperature=profile.flow_heat * numerical.temperature_scale,
         density=numerical.density_scale,
         fuel=profile.fuel_amount,
         subframes=5,

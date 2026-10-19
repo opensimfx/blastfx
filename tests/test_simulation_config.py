@@ -41,7 +41,8 @@ def test_artist_simulation_controls_reach_derived_configuration():
         fire_temperature=2.0,
     )
 
-    assert config.turbulence_strength > 0.7
+    # Artist turbulence maps into the expert vorticity band (ceiling 0.2).
+    assert 0.05 < config.turbulence_strength <= 0.2
     assert config.density_scale == 2.0
     assert config.temperature_scale > 3.0
 

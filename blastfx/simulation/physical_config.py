@@ -39,6 +39,8 @@ def build_simulation_config(
     smoke_density=1.0,
     fire_temperature=1.0,
     profile=None,
+    timeline_duration_s=0.0,
+    fps=24.0,
 ):
     quality_factor = {"DRAFT": 0.5, "PREVIEW": 1.0, "FINAL": 1.5}.get(quality, 1.0)
     base_resolution = resolution or 128
@@ -52,19 +54,23 @@ def build_simulation_config(
         voxel_size_m=max(derived.characteristic_radius_m / domain_resolution, 1e-5),
         characteristic_velocity_mps=max(0.1, float(derived.characteristic_velocity_mps)),
         time_scale_multiplier=1.0,
-        turbulence_strength=max(0.0, min(4.0, float(turbulence) * turbulence_base)),
+        # Expert ceiling for vorticity is 0.2 (froth above it); artist
+        # turbulence 1.0 maps into the middle of the band.
+        turbulence_strength=max(0.0, min(0.2, float(turbulence) * turbulence_base * 0.12)),
         buoyancy_density=max(0.0, min(5.0, multiplier.buoyancy_density if multiplier else (0.8 + 0.15 * intensity))),
         buoyancy_heat=max(0.0, min(5.0, multiplier.buoyancy_heat if multiplier else (1.0 + 0.35 * intensity))),
         burning_rate=max(0.05, min(4.0, multiplier.burning_rate if multiplier else (0.9 / max(intensity, 0.25)))),
         flame_smoke=max(0.0, min(8.0, float(smoke_density) * (multiplier.flame_smoke if multiplier else (1.0 + 0.25 * intensity)))),
         flame_vorticity=max(0.0, min(2.0, multiplier.flame_vorticity if multiplier else (0.25 + 0.08 * intensity))),
-        flame_ignition=max(0.5, min(5.0, 1.5)),
+        flame_ignition=max(0.5, min(5.0, multiplier.flame_ignition if multiplier else 1.5)),
         flame_max_temp=max(1.0, min(10.0, 3.0 + 0.25 * intensity)),
         noise_strength=multiplier.noise_strength if multiplier else 1.0,
         noise_pos_scale=multiplier.noise_scale if multiplier else 2.0,
         noise_time_anim=0.1,
         use_dissolve_smoke=True,
-        dissolve_speed=150,
+        # Smoke starts dissolving over the last quarter of the timeline
+        # (research: ~40-45 frames of linger for a 6-8 s blast).
+        dissolve_speed=max(12, int(round(timeline_duration_s * fps * 0.25))),
         temperature_scale=max(0.1, min(10.0, float(fire_temperature) * (multiplier.temperature if multiplier else (1.0 + intensity)))),
         density_scale=max(0.1, min(10.0, float(smoke_density) * (multiplier.density if multiplier else 1.0))),
         seed=int(seed),

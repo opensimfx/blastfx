@@ -24,6 +24,8 @@ def build_explosion(context, collection, controller, props):
     )
 
     profile = profile_for(props.explosion_type)
+    fps = context.scene.render.fps / context.scene.render.fps_base
+    timeline = physical.characteristic_time_s / max(float(props.speed), 0.05)
     numerical = build_simulation_config(
         physical,
         props.quality,
@@ -34,6 +36,8 @@ def build_explosion(context, collection, controller, props):
         props.smoke_density,
         props.fire_temperature,
         profile,
+        timeline_duration_s=timeline,
+        fps=fps,
     )
 
     config = {
