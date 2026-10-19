@@ -31,8 +31,10 @@ def build_debris_particles(context, collection, controller, config):
 
     # Emitter object (invisible sphere, raised above the ground line so
     # debris never starts underneath the ground collider).
+    origin = controller.location
     bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=r * 0.1, location=controller.location + (0.0, 0.0, r * 0.1)
+        radius=r * 0.1,
+        location=(origin[0], origin[1], origin[2] + r * 0.1),
     )
     emitter = bpy.context.active_object
     emitter.name = f"Blast_{blast_id}_DebrisEmitter"
@@ -123,8 +125,10 @@ def build_spark_particles(context, collection, controller, config):
     fps = context.scene.render.fps / context.scene.render.fps_base
     total_frames = max(1, int(duration_s * fps))
 
+    spark_origin = controller.location
     bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=r * 0.05, location=controller.location + (0.0, 0.0, r * 0.05)
+        radius=r * 0.05,
+        location=(spark_origin[0], spark_origin[1], spark_origin[2] + r * 0.05),
     )
     emitter = bpy.context.active_object
     emitter.name = f"Blast_{blast_id}_SparkEmitter"
