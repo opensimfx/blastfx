@@ -29,7 +29,13 @@ def configure_fluid_modifier(obj, fluid_type):
     if mod is None:
         mod = obj.modifiers.new(name="BlastFX Fluid", type="FLUID")
     mod.fluid_type = fluid_type
-    settings = mod.domain_settings if fluid_type == "DOMAIN" else mod.flow_settings
+    # Settings live in different slots per fluid type.
+    if fluid_type == "DOMAIN":
+        settings = mod.domain_settings
+    elif fluid_type == "EFFECTOR":
+        settings = mod.effector_settings
+    else:
+        settings = mod.flow_settings
     if settings is None:
         raise RuntimeError(
             f"Blender 5.2 did not initialize Mantaflow {fluid_type} settings for {obj.name}"
