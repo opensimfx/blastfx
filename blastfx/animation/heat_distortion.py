@@ -93,9 +93,22 @@ def build_heat_distortion_compositor(context, controller, config):
     denoise.location = (400, 0)
     links.new(hue.outputs["Image"], denoise.inputs["Image"])
 
-    # Viewer for preview (compositor output is the terminal node).
+    # Scene-level compositor groups need a Group Output socket, otherwise
+    # Blender refuses to render ("No Group Output or File Output nodes in
+    # scene"). Viewer stays for quick previews only.
+    output = nodes.new("NodeGroupOutput")
+    output.location = (600, 160)
+    if not any(
+        s.item_type == "SOCKET" and s.in_out == "OUTPUT" and s.name == "Image"
+        for s in tree.interface.items_tree
+    ):
+        tree.interface.new_socket(
+            name="Image", in_out="OUTPUT", socket_type="NodeSocketColor"
+        )
+    links.new(denoise.outputs["Image"], output.inputs["Image"])
+
     viewer = nodes.new("CompositorNodeViewer")
-    viewer.location = (600, 0)
+    viewer.location = (600, -160)
     links.new(denoise.outputs["Image"], viewer.inputs["Image"])
 
-    return viewer
+    return output

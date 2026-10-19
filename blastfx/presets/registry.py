@@ -43,7 +43,9 @@ def _builtin_presets() -> Dict[str, Preset]:
             label="Medium Ground Blast",
             description="Ground blast using the medium explosion profile.",
             explosion_type="FUEL",
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 14.0},
+            # 8.5 s ≈ 204 frames: stays inside the researched 100-200 frame
+            # cache band (Iridesium); the old 14 s tail was dissolving haze.
+            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 8.5},
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True},
             simulation={"resolution": 256, "noise": 2},
         ),
@@ -52,8 +54,19 @@ def _builtin_presets() -> Dict[str, Preset]:
             label="Large Ground Blast",
             description="Large conventional blast with rising column.",
             explosion_type="LARGE",
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 24.0},
+            # 9.5 s ≈ 228 frames: scaled against the same 100-200 frame band
+            # (24 s died bake-jobs with frames of pure haze after the fire).
+            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 9.5},
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True},
+            simulation={"resolution": 256, "noise": 2},
+        ),
+        "heavy": Preset(
+            id="heavy",
+            label="Heavy Ground Burst",
+            description="Massive ground burst: long-burning fireball, heavy column, dust surge, debris.",
+            explosion_type="HEAVY",
+            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 16.0},
+            components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True, "debris": True},
             simulation={"resolution": 256, "noise": 2},
         ),
     }

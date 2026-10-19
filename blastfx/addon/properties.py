@@ -13,6 +13,7 @@ EXPLOSION_TYPES = [
     ("GROUND", "Ground Explosion", "Ground-based conventional explosion"),
     ("FUEL", "Fuel Explosion", "Fuel or vehicle-scale explosion"),
     ("LARGE", "Large Ground Blast", "Large conventional ground blast"),
+    ("HEAVY", "Heavy Ground Burst", "Massive long-burning ground burst"),
     ("AIRBURST", "Airburst", "Explosion occurring above the ground"),
     ("CUSTOM", "Custom", "User-authored configuration"),
 ]

@@ -63,3 +63,21 @@ def test_burst_config_reaches_derived_configuration():
     assert (config.burst_count, config.burst_normal_velocity, config.burst_random_velocity) == (
         same.burst_count, same.burst_normal_velocity, same.burst_random_velocity
     )
+
+
+def test_burst_count_scales_with_quality_to_hero_band():
+    from blastfx.core.explosion_profile import profile_for
+
+    physical = derive_physics(
+        PhysicalConfig(scale_m=10.0, reference_energy=1.0, intensity=2.0, duration_s=5.0)
+    )
+    large = profile_for("LARGE")
+    draft = build_simulation_config(physical, "DRAFT", 128, 1, 7, profile=large)
+    preview = build_simulation_config(physical, "PREVIEW", 128, 1, 7, profile=large)
+    final = build_simulation_config(physical, "FINAL", 128, 1, 7, profile=large)
+
+    assert draft.burst_count == large.burst_count
+    assert preview.burst_count == large.burst_count * 2
+    assert final.burst_count == large.burst_count * 4
+    # Hero quality stays inside the researched 8-10k band.
+    assert 8000 <= final.burst_count <= 10000

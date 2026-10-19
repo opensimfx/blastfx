@@ -96,6 +96,13 @@ class ExplosionProfile:
     burst_count: int = 1200
     burst_normal_velocity: float = 4.5
     burst_random_velocity: float = 4.5
+    # 0 = derive the window from source_duration at scene fps (burst_timing).
+    burst_emission_frames: int = 0
+    burst_lifetime_frames: int = 0
+    # Ground-surge blasts fire at the ground: the reflected blast turns the
+    # bottom half upward, so the lower cap's particles must pour up instead
+    # of straight into the ground collider (which eats them).
+    burst_flip_lower: bool = False
 
     def burst_timing(self, fps: float):
         """(emission_frames, particle_lifetime_frames, active_flow_frames).
@@ -103,21 +110,36 @@ class ExplosionProfile:
         Expert benchmark (Iridesium 2.m82+ / CrossMind 7): the fuel burst
         fires over 1-5 frames; short-lived fast particles keep injecting
         smoke only while they travel, then the flow closes (start 10 -> end
-        14-15, life 5-7 at 24 fps).
+        14-15, life 5-7 at 24 fps). Profiles with explicit frame overrides
+        bypass the duration derivation.
         """
         fps = max(1.0, float(fps))
-        emission = max(2, min(5, int(round(fps * self.source_duration * 0.35))))
-        lifetime = max(3, int(round(fps * self.source_duration * 0.3)))
+        emission = (
+            self.burst_emission_frames
+            if self.burst_emission_frames > 0
+            else max(2, min(5, int(round(fps * self.source_duration * 0.35))))
+        )
+        lifetime = (
+            self.burst_lifetime_frames
+            if self.burst_lifetime_frames > 0
+            else max(3, int(round(fps * self.source_duration * 0.3)))
+        )
         return emission, lifetime, emission + lifetime + 1
 
 
 PROFILES = {
     "GROUND": ExplosionProfile(
-        0.72, 0.10, 0.75, 1.15, 0.95, 1.5, 0.32, 1.15, 0.38, 1.25,
+        # fuel_amount (3rd value) matrix-probed in
+        # examples/burst_probe/matrix_D_flip_fuel: 0.75 starves the flame
+        # grid by ~f010; 2.0 keeps the fireball burning past f014.
+        0.72, 0.10, 2.0, 1.15, 0.95, 1.5, 0.32, 1.15, 0.38, 1.25,
         1.0, 2.2, 1.05, 0.8, 1, 0.8, 1.15, ground_surge=True, shockwave_delay=0.12,
         camera_distance_factor=2.0,
         flame_ignition=1.2, flow_heat=1.0,
         burst_count=1400, burst_normal_velocity=5.0, burst_random_velocity=3.5,
+        # Proportional shortest fire: 6/14 keeps the small blast's burn
+        # ≈ 1.5-2 s (small blast = shortest, per the size-scaling ask).
+        burst_emission_frames=6, burst_lifetime_frames=14, burst_flip_lower=True,
     ),
     "FUEL": ExplosionProfile(
         1.0, 1.25, 2.5, 1.35, 1.25, 1.15, 0.6, 0.32, 0.78, 2.25,
@@ -125,9 +147,14 @@ PROFILES = {
         camera_distance_factor=2.2,
         flame_ignition=1.5, flow_heat=0.9,
         burst_count=1800, burst_normal_velocity=4.5, burst_random_velocity=4.5,
+        # Burn matrix variant B (/var 24/28 windows): visible fire ≈ 3 s.
+        burst_emission_frames=24, burst_lifetime_frames=28,
     ),
     "LARGE": ExplosionProfile(
-        1.45, 0.56, 1.45, 1.2, 1.55, 1.08, 0.48, 0.65, 0.62, 2.7,
+        # fuel 4.5 + burn 0.22 from burn-matrix variant D (fire ≈ 5 s):
+        # slower burn + more injected fuel stretches visible flame past
+        # ~f96-120 at 24 fps instead of the old 1 s flash.
+        1.45, 0.56, 4.5, 1.2, 1.55, 1.08, 0.48, 0.22, 0.62, 2.7,
         1.3, 3.1, 1.65, 1.4, 2, 2.8, 1.9, stem=True, ground_surge=True,
         shockwave_delay=0.16, shockwave_radius_factor=6.0,
         camera_distance_factor=2.5,
@@ -136,6 +163,22 @@ PROFILES = {
         dust_temperature=-2.5,
         flame_ignition=1.8, flow_heat=0.85,
         burst_count=2400, burst_normal_velocity=4.0, burst_random_velocity=5.0,
+        burst_flip_lower=True,  # same ground-surge logic as GROUND
+        burst_emission_frames=36, burst_lifetime_frames=48,
+    ),
+    "HEAVY": ExplosionProfile(
+        # Massive ground burst: ground-burst fireballs burn 1-3 s (vs
+        # 2-5 s airbursts) — long override windows keep fuel injecting for
+        # ~1.5 s at 24 fps while the enormous column rolls up.
+        2.2, 0.60, 6.0, 1.5, 1.6, 1.25, 0.5, 1.2, 0.35, 3.0,
+        1.6, 3.6, 1.2, 1.5, 2, 2.0, 2.2, stem=True, ground_surge=True,
+        shockwave_delay=0.10, shockwave_radius_factor=8.0,
+        camera_distance_factor=3.0,
+        dust_duration_factor=1.2, dust_density_factor=1.2,
+        dust_velocity_random=0.30, dust_velocity_normal_factor=0.15,
+        flame_ignition=2.0, flow_heat=1.4,
+        burst_count=4000, burst_normal_velocity=5.5, burst_random_velocity=4.0,
+        burst_emission_frames=36, burst_lifetime_frames=40, burst_flip_lower=True,
     ),
 }
 

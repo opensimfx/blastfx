@@ -42,7 +42,13 @@ def build_simulation_config(
     timeline_duration_s=0.0,
     fps=24.0,
 ):
-    quality_factor = {"DRAFT": 0.5, "PREVIEW": 1.0, "FINAL": 1.5}.get(quality, 1.0)
+    # DRAFT scaling is done once by presets/apply.py (preset resolution is
+    # pre-halved); manual resolution edits reach the build 1:1.
+    quality_factor = {"DRAFT": 1.0, "PREVIEW": 1.0, "FINAL": 1.5}.get(quality, 1.0)
+    # Burst particles refine fuel filaments in denser domains (CrossMind:
+    # particle count is the detail dial); the hero band 8-10k is reached at
+    # FINAL quality.
+    burst_quality_factor = {"DRAFT": 1.0, "PREVIEW": 2.0, "FINAL": 4.0}.get(quality, 1.0)
     base_resolution = resolution or 128
     domain_resolution = max(16, int(base_resolution * quality_factor))
     intensity = max(0.1, derived.intensity)
@@ -68,13 +74,18 @@ def build_simulation_config(
         noise_pos_scale=multiplier.noise_scale if multiplier else 2.0,
         noise_time_anim=0.1,
         use_dissolve_smoke=True,
-        # Smoke starts dissolving over the last quarter of the timeline
-        # (research: ~40-45 frames of linger for a 6-8 s blast).
-        dissolve_speed=max(12, int(round(timeline_duration_s * fps * 0.25))),
+        # Dissolve as the second half of the timeline (CG Geek used ~1/3 of
+        # the clip duration): smoke must linger across the render, and a
+        # quarter-timeline dissolve wiped GROUND blasts clean by frame ~40
+        # (probe evidence: examples/burst_probe/ground_close_f040.png).
+        dissolve_speed=max(12, int(round(timeline_duration_s * fps * 0.5))),
         temperature_scale=max(0.1, min(10.0, float(fire_temperature) * (multiplier.temperature if multiplier else (1.0 + intensity)))),
         density_scale=max(0.1, min(10.0, float(smoke_density) * (multiplier.density if multiplier else 1.0))),
         seed=int(seed),
-        burst_count=max(200, int(multiplier.burst_count if multiplier else 1500)),
+        # Hero presets need 8-10k burst particles at final quality (plan T1.2);
+        # profile counts describe the interactive DRAFT bake and scale up per
+        # quality tier (LARGE FINAL: 2400 * 4 = 9600).
+        burst_count=max(200, int(round((multiplier.burst_count if multiplier else 1500) * burst_quality_factor))),
         # Particle speeds are domain-relative like the benchmarks (4-6 m/s in
         # a ~2 m domain); scale up only when the characteristic speed is higher.
         burst_normal_velocity=max(0.5, float(multiplier.burst_normal_velocity if multiplier else 4.5) * max(1.0, derived.characteristic_velocity_mps)),

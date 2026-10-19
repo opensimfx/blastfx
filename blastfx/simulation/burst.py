@@ -22,7 +22,7 @@ _CAP_RINGS = 12
 _VARIANT_SEED_OFFSET = {"upper": 31, "lower": 7}
 
 
-def _hemisphere(bm, radius, upper):
+def _hemisphere(bm, radius, upper, flip=False):
     """Build a spherical-cap emitter mesh: a UV sphere split at the equator."""
     bmesh.ops.create_uvsphere(
         bm, u_segments=_CAP_SEGMENTS, v_segments=_CAP_RINGS, radius=radius
@@ -32,6 +32,10 @@ def _hemisphere(bm, radius, upper):
         if (v.co.z < 0.0 if upper else v.co.z > 0.0)
     ]
     bmesh.ops.delete(bm, geom=to_delete, context="VERTS")
+    if flip:
+        # Keep the cap below the equator but burst its particles upward:
+        # the ground collision eats anything shot straight down.
+        bmesh.ops.reverse_faces(bm, faces=[f for f in bm.faces])
 
 
 def _particle_seed(numerical_seed, suffix):
@@ -56,7 +60,7 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     obj = add_mesh_object(
         collection,
         name,
-        lambda bm: _hemisphere(bm, radius, upper),
+        lambda bm: _hemisphere(bm, radius, upper, flip=profile.burst_flip_lower),
         controller.location,
     )
 
