@@ -9,7 +9,7 @@ from .physical_config import build_simulation_config
 from .cache import configure_cache
 from ..core.physics import AmbientConditions, PhysicalConfig, derive_physics, gravity_magnitude
 from ..core.domain_envelope import build_domain_envelope
-from ..core.explosion_profile import profile_for
+from ..core.explosion_profile import profile_for, shading_for
 
 
 def build_explosion(context, collection, controller, props):
@@ -55,6 +55,7 @@ def build_explosion(context, collection, controller, props):
         "numerical": numerical,
         "timeline_duration_s": physical.characteristic_time_s / max(float(props.speed), 0.05),
         "profile": profile,
+        "shading": shading_for(props.explosion_type),
     }
     config["domain_envelope"] = build_domain_envelope(
         physical,
