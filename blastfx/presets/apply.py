@@ -26,6 +26,15 @@ def apply_preset(props, preset_id: str) -> None:
 
     if "resolution" in preset.simulation:
         props.resolution = preset.simulation["resolution"]
+    else:
+        # JSON presets carry preview/final keys; prefer final as the base
+        # resolution (quality factor still scales it at build time).
+        resolution = preset.simulation.get(
+            "final_resolution",
+            preset.simulation.get("preview_resolution"),
+        )
+        if resolution is not None:
+            props.resolution = resolution
 
     if "noise" in preset.simulation:
         props.noise_upres = preset.simulation["noise"]
