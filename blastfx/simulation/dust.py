@@ -1,3 +1,4 @@
+from ..utils.animation import action_fcurves
 from ..utils.naming import component_name
 from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
 from .ground import ground_top_z
@@ -44,7 +45,23 @@ def build_dust(context, collection, controller, config):
     duration_s = config.get("timeline_duration_s", config["duration"])
     duration_factor = profile.dust_duration_factor if profile else 0.35
     frames = max(2, int(context.scene.render.fps * duration_s * duration_factor))
-    keyframe_inflow(flow, config["start_frame"], config["start_frame"] + frames)
+    start_frame = config["start_frame"]
+    keyframe_inflow(flow, start_frame, start_frame + frames)
+
+    # Expanding dust donut: grow the emitter ring outward over its first
+    # ~1-2 s so smoke injection sweeps a visible ground ring instead of a
+    # static cylinder puff (same LINEAR keyframe pattern as the visible
+    # shockwave ring in animation/shockwave.py).
+    ring_frames = max(6, round(context.scene.render.fps * min(duration_s * duration_factor, 2.0)))
+    obj.scale = (0.45, 0.45, 0.45)
+    obj.keyframe_insert("scale", frame=start_frame)
+    obj.scale = (1.0, 1.0, 1.0)
+    obj.keyframe_insert("scale", frame=start_frame + ring_frames)
+    for fcurve in action_fcurves(obj):
+        if fcurve.data_path == "scale":
+            for kp in fcurve.keyframe_points:
+                kp.interpolation = "LINEAR"
+
     obj.hide_render = True
     obj.display_type = "WIRE"
     obj["blastfx_role"] = "emitter"

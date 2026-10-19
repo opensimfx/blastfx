@@ -25,7 +25,7 @@ def apply_preset(props, preset_id: str) -> None:
             setattr(props, prop_name, preset.components[key])
 
     if "resolution" in preset.simulation:
-        props.resolution = preset.simulation["resolution"]
+        resolution = preset.simulation["resolution"]
     else:
         # JSON presets carry preview/final keys; prefer final as the base
         # resolution (quality factor still scales it at build time).
@@ -33,8 +33,13 @@ def apply_preset(props, preset_id: str) -> None:
             "final_resolution",
             preset.simulation.get("preview_resolution"),
         )
-        if resolution is not None:
-            props.resolution = resolution
+
+    if resolution is not None:
+        # Draft previews at half the preset resolution immediately, so the
+        # build-time quality factor never halves manual resolution edits.
+        if getattr(props, "quality", "") == "DRAFT":
+            resolution = max(16, int(resolution * 0.5))
+        props.resolution = resolution
 
     if "noise" in preset.simulation:
         props.noise_upres = preset.simulation["noise"]

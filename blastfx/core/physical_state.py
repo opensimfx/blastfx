@@ -53,7 +53,7 @@ def build_physical_state(
         "fps": float(scene.render.fps),
         "fps_base": float(scene.render.fps_base),
         "unit_scale": float(scene.unit_settings.scale_length),
-        "addon_version": "0.1.2",
+        "addon_version": "0.2.0",
         "blender_version": tuple(__import__("bpy").app.version),
         "seed": int(props.seed),
         "quality": props.quality,
