@@ -1,5 +1,6 @@
 from ..utils.naming import component_name
 from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
+from .ground import ground_top_z
 
 
 def build_dust(context, collection, controller, config):
@@ -8,13 +9,28 @@ def build_dust(context, collection, controller, config):
     profile = config.get("profile")
     radius = physical.characteristic_radius_m
     name = component_name(controller["blastfx_id"], "Dust")
+    depth = max(radius * 0.3, 0.02)
+
+    # Ground-surge blasts spawn their dust shell at the ground surface and
+    # keep it hugging the floor with negative (cool) air temperature
+    # (Iridesium: initial temperature about -3 = cool ground dust).
+    location = controller.location
+    if profile and profile.ground_surge:
+        location = (
+            location[0], location[1],
+            ground_top_z(config, controller) + depth / 2.0,
+        )
+
     obj = primitive_flow(
-        collection, name, controller.location,
-        "cylinder", radius=radius * 2.5, depth=max(radius * 0.3, 0.02), segments=64,
+        collection, name, location,
+        "cylinder", radius=radius * 2.5, depth=depth, segments=64,
     )
     _, flow = configure_fluid_modifier(obj, "FLOW")
     configure_flow(
-        flow, flow_type="SMOKE", temperature=0.05,
+        flow, flow_type="SMOKE",
+        temperature=numerical.temperature_scale * (
+            profile.dust_temperature if profile else -2.0
+        ),
         density=numerical.density_scale * (
             profile.dust_density_factor if profile else 2.0
         ),

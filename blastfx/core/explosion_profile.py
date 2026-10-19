@@ -90,6 +90,7 @@ class ExplosionProfile:
     dust_density_factor: float = 2.0
     dust_velocity_random: float = 0.65
     dust_velocity_normal_factor: float = 0.30
+    dust_temperature: float = -2.0
     flame_ignition: float = 1.5
     flow_heat: float = 0.90
     burst_count: int = 1200
@@ -132,6 +133,7 @@ PROFILES = {
         camera_distance_factor=2.5,
         dust_duration_factor=0.85, dust_density_factor=0.8,
         dust_velocity_random=0.25, dust_velocity_normal_factor=0.12,
+        dust_temperature=-2.5,
         flame_ignition=1.8, flow_heat=0.85,
         burst_count=2400, burst_normal_velocity=4.0, burst_random_velocity=5.0,
     ),

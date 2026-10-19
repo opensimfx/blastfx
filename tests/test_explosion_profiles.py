@@ -36,3 +36,11 @@ def test_shading_configs_are_deterministic_and_sane():
     assert config.flame_multiplier > 1.0
     assert config.blackbody_intensity == 0.0
     assert 0.0 < config.density_multiplier <= 1.0
+
+
+def test_dust_profiles_use_negative_cool_ground_temperature():
+    for explosion_type in ("GROUND", "FUEL", "CUSTOM", "AIRBURST"):
+        profile = profile_for(explosion_type)
+        assert profile.dust_temperature <= -1.0
+    # The big ground-surge profile hugs hardest (strongest cool air).
+    assert profile_for("LARGE").dust_temperature <= profile_for("FUEL").dust_temperature
