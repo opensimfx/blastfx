@@ -43,6 +43,12 @@ from blastfx.render.settings import configure_render_settings, configure_world, 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = REPO_ROOT / "examples"
+BEFORE_DIR = EXAMPLES / "before"
+
+# Hero frames rendered for visual before/after regression: offsets relative
+# to the blast start frame (+5 fireball, +15 mature smoke, +40 decay).
+HERO_FRAME_OFFSETS = (5, 15, 40)
+TURN_WIDTH, TURN_HEIGHT = 1280, 720
 
 # scene filename -> (preset id, deterministic seed)
 SCENES = (
@@ -100,6 +106,50 @@ def _add_camera(scene, envelope):
     scene.camera = camera
 
 
+def _bake_fluids():
+    domain_obj = next(
+        (obj for obj in bpy.data.objects for mod in obj.modifiers
+         if mod.type == "FLUID" and mod.fluid_type == "DOMAIN" and mod.domain_settings),
+        None,
+    )
+    if domain_obj is None:
+        raise RuntimeError("No fluid domain to bake.")
+    domain_settings = next(
+        mod.domain_settings for mod in domain_obj.modifiers
+        if mod.type == "FLUID" and mod.domain_settings
+    )
+    frame_count = (
+        int(domain_settings.cache_frame_end) - int(domain_settings.cache_frame_start) + 1
+    )
+    print(
+        f"BAKING {frame_count} frame(s) at resolution {domain_settings.resolution_max}...",
+        flush=True,
+    )
+    # bake_all acts on the view layer's active object
+    bpy.context.view_layer.objects.active = domain_obj
+    domain_obj.select_set(True)
+    bpy.ops.fluid.bake_all()
+    print("BAKE DONE", flush=True)
+
+
+def _render_hero_frames(stem):
+    """Render the regression hero frames into examples/before/."""
+    scene = bpy.context.scene
+    scene.render.resolution_x = TURN_WIDTH
+    scene.render.resolution_y = TURN_HEIGHT
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    for offset in HERO_FRAME_OFFSETS:
+        frame = scene.frame_start + offset
+        if frame > scene.frame_end:
+            continue
+        scene.frame_set(frame)
+        filepath = BEFORE_DIR / f"{stem}_f{offset:03d}.png"
+        scene.render.filepath = str(filepath)
+        bpy.ops.render.render(write_still=True)
+        print(f"RENDERED {filepath}", flush=True)
+
+
 def build_scene(filename, preset_id, seed):
     bpy.ops.wm.read_homefile(use_empty=True)
     scene = bpy.context.scene
@@ -123,6 +173,9 @@ def build_scene(filename, preset_id, seed):
     _add_neutral_world(scene)
     _add_sun(scene)
 
+    _bake_fluids()
+    _render_hero_frames(Path(filename).stem)
+
     path = EXAMPLES / filename
     bpy.ops.wm.save_as_mainfile(filepath=str(path))
     print(
@@ -134,9 +187,14 @@ def build_scene(filename, preset_id, seed):
 
 def main():
     EXAMPLES.mkdir(parents=True, exist_ok=True)
+    BEFORE_DIR.mkdir(parents=True, exist_ok=True)
+    only = os.environ.get("BLASTFX_EXAMPLES")
+    selected = SCENES if not only else tuple(
+        s for s in SCENES if s[1] in only.split(",")
+    )
     register()
     try:
-        for filename, preset_id, seed in SCENES:
+        for filename, preset_id, seed in selected:
             build_scene(filename, preset_id, seed)
     finally:
         unregister()
