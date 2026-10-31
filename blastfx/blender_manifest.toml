@@ -1,0 +1,22 @@
+schema_version = "1.0.0"
+
+id = "blastfx"
+version = "0.2.0"
+name = "Blast FX"
+tagline = "Procedural cinematic explosion authoring system"
+maintainer = "arsh342 <arsh342@users.noreply.github.com>"
+type = "add-on"
+
+website = "https://github.com/opensimfx/blastfx"
+tags = ["Physics", "Bake", "Render"]
+
+blender_version_min = "5.2.0"
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+copyright = [
+  "2026 arsh342",
+]
+
+[permissions]
+files = "Read and write simulation cache and preset files"
