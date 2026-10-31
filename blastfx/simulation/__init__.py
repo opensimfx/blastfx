@@ -1,0 +1,109 @@
+from .domain import build_domain
+from .ground import build_ground
+from .burst import build_burst
+from .rapatronic import build_rapatronic
+from .stem import build_stem
+from .dust import build_dust
+from .shockwave import build_shockwave
+from .particles import build_debris_particles, build_spark_particles
+from .physical_config import build_simulation_config
+from .cache import configure_cache
+from ..core.physics import AmbientConditions, PhysicalConfig, derive_physics, gravity_magnitude, effective_scale_m
+from ..core.domain_envelope import build_domain_envelope
+from ..core.explosion_profile import profile_for, shading_for
+
+
+def build_explosion(context, collection, controller, props):
+    # Nuclear yield overrides the manual scale here too: build_explosion is
+    # also called on rebuild, where it re-derives physics from props.scale.
+    scale_m = effective_scale_m(props)
+    physical = derive_physics(
+        PhysicalConfig(
+            scale_m=scale_m,
+            reference_energy=float(props.reference_energy),
+            intensity=float(props.intensity),
+            duration_s=float(props.duration),
+            ambient=AmbientConditions(gravity=gravity_magnitude(context.scene.gravity)),
+        )
+    )
+
+    profile = profile_for(props.explosion_type)
+    fps = context.scene.render.fps / context.scene.render.fps_base
+    timeline = physical.characteristic_time_s / max(float(props.speed), 0.05)
+    numerical = build_simulation_config(
+        physical,
+        props.quality,
+        props.resolution,
+        props.noise_upres,
+        props.seed,
+        props.turbulence,
+        props.smoke_density,
+        props.fire_temperature,
+        profile,
+        timeline_duration_s=timeline,
+        fps=fps,
+    )
+
+    config = {
+        "type": props.explosion_type,
+        "preset": props.preset_id,
+        "scale": scale_m,
+        "intensity": props.intensity,
+        "speed": props.speed,
+        "duration": props.duration,
+        "start_frame": props.start_frame,
+        "seed": props.seed,
+        "quality": props.quality,
+        "resolution": props.resolution,
+        "noise": props.noise_upres,
+        "turbulence": props.turbulence,
+        "smoke_density": props.smoke_density,
+        "fire_temperature": props.fire_temperature,
+        "physical": physical,
+        "numerical": numerical,
+        "timeline_duration_s": physical.characteristic_time_s / max(float(props.speed), 0.05),
+        "profile": profile,
+        "shading": shading_for(props.explosion_type),
+    }
+    config["domain_envelope"] = build_domain_envelope(
+        physical,
+        numerical,
+        gravity_magnitude(context.scene.gravity),
+        config["timeline_duration_s"],
+        profile,
+    )
+
+    # Build order matters: domain first, emitters second.
+    domain = build_domain(context, collection, controller, config)
+
+    # Configure cache after domain is built
+    domain["blastfx_physics_state"] = controller.get("blastfx_physics_state", "")
+    configure_cache(domain, context, collection, controller, config, props.quality)
+
+    # Conventional explosion components
+    build_ground(context, collection, controller, config, domain)
+
+    if props.use_fireball:
+        build_burst(context, collection, controller, config)
+
+    # Rapatronic skin frames sit inside the innermost fireball (first
+    # milliseconds), so it follows the burst whenever both are on.
+    if getattr(props, "use_rapatronic", False) and props.use_fireball:
+        build_rapatronic(context, collection, controller, config)
+
+    if props.use_stem:
+        build_stem(context, collection, controller, config)
+
+    if props.use_dust:
+        build_dust(context, collection, controller, config)
+
+    if props.use_shockwave:
+        build_shockwave(context, collection, controller, config)
+
+    if props.use_debris:
+        # One collection-variant particle system (4 tumbling shard meshes)
+        # covers debris; the old single-shard emitter was merged into it.
+        build_debris_particles(context, collection, controller, config)
+    build_spark_particles(context, collection, controller, config)
+
+    return domain
