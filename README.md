@@ -5,6 +5,12 @@ alongside RainFX, FlowFX and AtmosFX.
 
 > BlastFX is a **visual simulation system**. It produces cinematic explosions; it is not an engineering model of real blasts, yields or damage.
 
+![Small blast](docs/previews/small.png)
+![Medium blast](docs/previews/medium.png)
+![Large blast](docs/previews/large.png)
+
+_Renders: headless Cycles, DRAFT quality (`tools/render_preview.py`). They are validation checks, not showpieces._
+
 BlastFX builds ground-blast scenes from a coherent physical configuration — SI units, FPS-independent timing, scale-aware domains — rather than hand-keyframed fire and smoke. One click creates a full blast stack: gas domain with a deterministic pre-bake envelope, fireball, rising column, ground dust, shockwave, debris, flash, camera shake, exposure impulse and heat haze. Bakes run in a background Blender worker so the UI stays responsive, and caches are content-addressed: nothing is re-baked unless the physical state actually changed.
 
 ## Features
@@ -65,6 +71,25 @@ tools/                   package, validation, calibration, runtime smoke tests
 docs/                    ARCHITECTURE, PHYSICS, DEVELOPMENT, HISTORY
 tests/                   pytest suites (pure Python, no bpy)
 ```
+
+## Generate Previews
+
+```bash
+# Requires desktop Blender 5.2+ (not headless bpy wheel — Mantaflow needs the full build)
+# Usage: /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+#        --python tools/render_preview.py -- <preset> <output.png> [samples]
+
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+    --python tools/render_preview.py -- small docs/previews/small.png 48
+
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+    --python tools/render_preview.py -- medium docs/previews/medium.png 48
+
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+    --python tools/render_preview.py -- large docs/previews/large.png 48
+```
+
+Presets: `small`, `medium`, `large`, `large_ground`, `nuclear_airburst`, `nuclear_groundburst`
 
 ## Develop
 
