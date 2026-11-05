@@ -113,6 +113,6 @@ See `docs/DEVELOPMENT.md` for the full dev loop, coding rules, test matrix, and 
 
 ## License
 
-GPL-3.0-or-later — see [`LICENSE.txt`](LICENSE.txt).
+GPL-3.0-or-later — see [`LICENSE`](LICENSE).
 
 This keeps the add-on compatible with Blender's own GPL codebase and with the Blender Extensions platform. Contributions you submit fall under the same license.
