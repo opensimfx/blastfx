@@ -52,6 +52,30 @@ on bigger domains.
 - Profiles need visual retuning on top of this (expected; values were tuned around the
   scale bug).
 
+### Phase B: shading and fire light
+
+- Smoke extinction is normalised by fireball radius (`optical_depth` per profile), so a
+  4 m and a 40 m blast render alike; before, small blasts were see-through haze and big
+  ones opaque blobs.
+- Fire colour comes from a Blackbody node fed by the flame grid mapped to a per-profile
+  temperature range (white-hot core, orange body, red edges) instead of one flat colour.
+- Fire emission follows Kirchhoff's law (extinction x brightness x flame^gamma): an
+  optically thick core glows at the same radiance at any size and density. Per-metre
+  emission had left dense fireballs as dim as the sky.
+- Smoke albedo ramp spans the measured density range (0-3) and is darkened where flame
+  burns (soot is black); dense smoke keeps ~0.04 albedo so the fire lights it. The volume
+  Fresnel term (no surface normal in a volume) is gone.
+- AgX compensation: under Blender's default AgX view the fire gets a hue/saturation grade
+  and lower brightness, because AgX turned raw blackbody orange salmon-pink (measured
+  against Filmic on the same bake). Other views get the raw colour.
+- Fire light replaces the flash: a 1-2 frame detonation flash then the fire's glow over
+  the measured fire lifetime (`fire_light_T`), energy proportional to R^2, colour by
+  temperature. The old light ramped over 5% of the shot at 50 kW per metre and lasted
+  35% of it, washing out every frame.
+- The rising column starts once the fireball has lifted (`stem_delay_T`) at normal
+  density; fed from frame 1 it rendered as a black chimney.
+
+
 ## 0.2.0-beta2 (2026-10-19)
 
 Nuclear support on top of the beta1 rework.

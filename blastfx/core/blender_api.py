@@ -78,10 +78,17 @@ def runtime_self_test():
         material = bpy.data.materials.new("__BlastFX_API_Test_Volume")
         material.use_nodes = True
         volume_node = material.node_tree.nodes.new("ShaderNodeVolumePrincipled")
-        for attr in ("Density Attribute", "Temperature Attribute", "Density",
-                     "Temperature", "Blackbody Intensity"):
+        for attr in ("Density Attribute", "Density", "Color", "Emission Strength",
+                     "Emission Color", "Blackbody Intensity", "Anisotropy"):
             if volume_node.inputs.get(attr) is None:
                 errors.append(f"Principled Volume input {attr!r} is unavailable.")
+        info_node = material.node_tree.nodes.new("ShaderNodeVolumeInfo")
+        for attr in ("Density", "Flame"):
+            if info_node.outputs.get(attr) is None:
+                errors.append(f"Volume Info output {attr!r} is unavailable.")
+        blackbody_node = material.node_tree.nodes.new("ShaderNodeBlackbody")
+        if blackbody_node.inputs.get("Temperature") is None:
+            errors.append("Blackbody node input 'Temperature' is unavailable.")
         bpy.data.materials.remove(material, do_unlink=True)
     finally:
         for obj in (domain_obj, flow_obj):
