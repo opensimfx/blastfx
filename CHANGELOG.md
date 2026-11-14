@@ -75,6 +75,35 @@ on bigger domains.
 - The rising column starts once the fireball has lifted (`stem_delay_T`) at normal
   density; fed from frame 1 it rendered as a black chimney.
 
+### Phase C: cinematic layer
+
+- Fix: debris and sparks never rendered. Emitters were `hide_render`, which hides their
+  particle instances too (measured); sparks used the HALO type, which Cycles does not
+  draw; debris shards were sized twice (~1 cm on a 4 m blast) with a viewport-only colour.
+  Emitters now hide via `show_instancer_for_render`, prototypes live in a view-layer-
+  excluded collection, sparks are emissive blackbody instances, debris is charred and
+  thrown at multiples of U with playback-scaled gravity.
+- Fix: removing or rebuilding a blast now deletes its prototype collections instead of
+  orphaning them (they piled up on every Rebuild).
+- Shockwave: the flat dusty disc that crawled outward over most of the shot is replaced
+  by a refraction ripple sweeping out at 343 m/s (at least 3 frames on screen), and the
+  shock dust comes from an annulus with lift instead of a filled cylinder that stamped a
+  dark pancake under the fireball.
+- Heat haze is a refraction shell (Cycles volumes cannot refract) with animated noise,
+  faded toward its silhouette, camera-only, hidden outside the fire's lifetime. The old
+  "haze" was a grey Principled Volume fog ball.
+- Camera shake: noise on rotation starting when the blast wave reaches the camera
+  (distance / 343 m/s), amplitude by distance relative to fireball size, decaying over
+  ~1 s of event time. The old shake was four Bezier keys drifting over 75% of the shot.
+- Camera framing in fireball radii for every profile; the old radius rule parked the
+  Large Ground camera ~2.4 R out, inside the smoke.
+- Exposure reacts relative to the scene's own exposure (one frame +1 stop, a slight iris
+  dip, recovery over ~1.5 T) instead of forcing +3 stops and ending at 0.
+- Compositor: Bloom instead of the default Streaks, no hue shift, no second denoise
+  without passes, and a scene with its own compositor tree is no longer wiped
+  (`nodes.clear()` ran on whatever tree the scene had). Built with "Exposure & Bloom".
+- Create no longer forces `film_transparent`, which hid the artist's world.
+- Labels: "Fire Light", "Exposure & Bloom".
 
 ## 0.2.0-beta2 (2026-10-19)
 

@@ -136,4 +136,26 @@ def primitive_flow(collection, name, location, primitive, **kwargs):
             ),
             location,
         )
+    if primitive == "annulus":
+        inner = kwargs["inner_radius"]
+        outer = kwargs["outer_radius"]
+        depth = kwargs.get("depth", 1.0)
+        segments = kwargs.get("segments", 64)
+
+        def build(bm):
+            import math
+            rings = []
+            for radius, z in ((outer, -depth / 2), (outer, depth / 2), (inner, depth / 2), (inner, -depth / 2)):
+                rings.append([
+                    bm.verts.new((radius * math.cos(2 * math.pi * i / segments),
+                                  radius * math.sin(2 * math.pi * i / segments), z))
+                    for i in range(segments)
+                ])
+            for a, b in zip(rings, rings[1:] + rings[:1]):
+                for i in range(segments):
+                    j = (i + 1) % segments
+                    bm.faces.new((a[i], a[j], b[j], b[i]))
+            bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+
+        return add_mesh_object(collection, name, build, location)
     raise ValueError(f"Unknown flow primitive: {primitive}")

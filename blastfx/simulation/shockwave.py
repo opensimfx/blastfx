@@ -19,14 +19,20 @@ def build_shockwave(context, collection, controller, config):
     scaling = solver_scaling(longest_side(config["domain_envelope"]), numerical.playback_speed)
     radius = physical.characteristic_radius_m
     name = component_name(controller["blastfx_id"], "Shockwave")
+    # An annulus around the fireball: the shock raises dust from the ground
+    # it sweeps. A filled cylinder stamped a dark pancake under the fireball.
     obj = primitive_flow(
-        collection, name, controller.location,
-        "cylinder", radius=radius * 2.0, depth=max(radius * 0.2, 0.1), segments=96,
+        collection, name, controller.location, "annulus",
+        inner_radius=radius * 1.0, outer_radius=radius * 2.2,
+        depth=max(radius * 0.25, numerical.voxel_size_m * 2.0), segments=96,
     )
     _, flow = configure_fluid_modifier(obj, "FLOW")
     configure_flow(
         flow, flow_type="SMOKE", temperature=0.005,
-        density=numerical.density_scale * 3.0,
+        density=numerical.density_scale * 1.0,
+        # Lift so the raised dust billows into a skirt instead of lying as a
+        # flat pancake on the ground.
+        velocity=(0.0, 0.0, scaling.flow_velocity(0.35 * physical.characteristic_velocity_mps)),
         # velocity_normal is in grid units (measured): convert from m/s.
         velocity_normal=scaling.flow_normal_velocity(
             profile.shock_spread_U * physical.characteristic_velocity_mps,
