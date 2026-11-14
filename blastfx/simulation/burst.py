@@ -60,7 +60,12 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     obj = add_mesh_object(
         collection,
         name,
-        lambda bm: _hemisphere(bm, radius, upper, flip=profile.burst_flip_lower),
+        # Only the lower cap flips: the docstring of _hemisphere says it keeps the
+        # cap below the equator but bursts upward. Flipping the upper cap too
+        # pointed its normals inward, so it burst into itself.
+        lambda bm: _hemisphere(
+            bm, radius, upper, flip=bool(profile.burst_flip_lower and not upper)
+        ),
         controller.location,
     )
 
@@ -80,6 +85,12 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # particles would fight the buoyancy-driven ascension (research tip).
         settings.effector_weights.gravity = 0.0
         settings.mass = 0.1
+        # The fluid takes its initial velocity from these particles. Without
+        # these two lines the burst left at Blender's default speed (about
+        # 1 m/s), so the profile's burst_normal_velocity / burst_random_velocity
+        # never reached the solver.
+        settings.normal_factor = float(numerical.burst_normal_velocity)
+        settings.factor_random = float(numerical.burst_random_velocity)
         set_particle_seed(settings, _particle_seed(numerical.seed, suffix))
 
     psys = _add_particle_system(obj, f"{name}_psys", configure_particles)

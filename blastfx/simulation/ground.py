@@ -47,7 +47,14 @@ def build_ground(context, collection, controller, config, domain):
     obj = add_mesh_object(
         collection, name,
         lambda bm: bmesh.ops.create_cube(bm, size=2.0),
-        controller.location + top - Vector((0.0, 0.0, thickness / 2.0)),
+        # ground_top_z is already a world Z (it includes the controller's
+        # height), so add the controller's X/Y only. Adding the full location
+        # doubled the height for any blast placed above Z=0.
+        Vector((
+            controller.location.x + top.x,
+            controller.location.y + top.y,
+            top.z - thickness / 2.0,
+        )),
     )
     obj.scale = spread / 2.0
 

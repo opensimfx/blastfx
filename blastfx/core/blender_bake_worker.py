@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import resource
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -72,6 +74,60 @@ def _write_status(request: dict, state: str, started: float, message: str = "") 
             "message": message,
         },
     )
+
+
+METRICS_NAME = ".blastfx_metrics.json"
+
+
+def _peak_rss_mb() -> float:
+    """Peak resident memory of this worker process in MiB (macOS reports bytes)."""
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return round(peak / (1024 * 1024) if sys.platform == "darwin" else peak / 1024, 1)
+
+
+def _phase_timing(cache_root: Path, bake_started_wall: float) -> dict:
+    """Per-phase file counts, bytes and wall span from cache file timestamps.
+
+    The sim writes one file per frame, so the first/last mtime of the data and
+    noise folders give each phase's span without touching the bake itself.
+    """
+    phases = {}
+    for name in ("data", "noise"):
+        files = [p for p in (cache_root / name).glob("*") if p.is_file()] if (cache_root / name).exists() else []
+        if not files:
+            continue
+        times = sorted(p.stat().st_mtime for p in files)
+        phases[name] = {
+            "files": len(files),
+            "bytes": sum(p.stat().st_size for p in files),
+            "first_s": round(times[0] - bake_started_wall, 1),
+            "last_s": round(times[-1] - bake_started_wall, 1),
+            "span_s": round(times[-1] - times[0], 1),
+        }
+    return phases
+
+
+def _write_metrics(request: dict, domain_settings, cache_root: Path, bake_started_wall: float,
+                   bake_seconds: float) -> None:
+    """Persist bake cost next to the cache, outside job/, so recovery keeps it."""
+    payload = {
+        "blast_id": request.get("blast_id"),
+        "blender": bpy.app.version_string,
+        "bake_seconds": round(bake_seconds, 1),
+        "peak_rss_mb": _peak_rss_mb(),
+        "frames": [int(domain_settings.cache_frame_start), int(domain_settings.cache_frame_end)],
+        "resolution_max": int(domain_settings.resolution_max),
+        "use_noise": bool(domain_settings.use_noise),
+        "noise_scale": int(domain_settings.noise_scale),
+        "adapt_margin": int(domain_settings.adapt_margin),
+        "additional_res": int(domain_settings.additional_res),
+        "timesteps": [int(domain_settings.timesteps_min), int(domain_settings.timesteps_max)],
+        "cfl": float(domain_settings.cfl_condition),
+        "phases": _phase_timing(cache_root, bake_started_wall),
+        "cache_bytes": sum(p.stat().st_size for p in cache_root.rglob("*") if p.is_file()),
+    }
+    _atomic_json(cache_root / METRICS_NAME, payload)
+    print("Blast FX worker metrics:", json.dumps(payload), flush=True)
 
 
 def main() -> int:
@@ -158,12 +214,19 @@ def main() -> int:
     domain.select_set(True)
     bpy.context.view_layer.objects.active = domain
     _write_status(request, "BAKING_DATA", started, "Baking simulation data.")
+    bake_started_wall = time.time()
+    bake_started = time.monotonic()
     result = bpy.ops.fluid.bake_all()
+    bake_seconds = time.monotonic() - bake_started
     if "CANCELLED" in result:
         _write_status(request, "CANCELLED", started, "Mantaflow cancelled the bake.")
         return 2
     if "FINISHED" not in result:
         raise RuntimeError(f"Mantaflow bake returned {set(result)}")
+    try:
+        _write_metrics(request, domain_settings, authoritative, bake_started_wall, bake_seconds)
+    except Exception:  # metrics must never fail a good bake
+        traceback.print_exc()
     _write_status(request, "BAKE_OPERATOR_RETURNED", started, "Bake operator returned.")
     _write_status(request, "VERIFYING_CACHE", started, "Verifying cache output.")
     inspection = _inspect_cache_tree(authoritative, domain_settings.cache_data_format)
