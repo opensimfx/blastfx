@@ -105,6 +105,17 @@ on bigger domains.
 - Create no longer forces `film_transparent`, which hid the artist's world.
 - Labels: "Fire Light", "Exposure & Bloom".
 
+### Smoke banding
+
+- Fix: horizontal bands in rising smoke (Medium, Large Ground). Bisected with renders and
+  grid slices: the simulation's own density had no layers, and denoising, samples and
+  volume step size did not change them; the adaptive domain did. Its moving box clips
+  rising smoke every step (margins 4 and 12 banded, 20 mostly not), and inside the tight
+  Froude envelope it saved little time (Draft medium: margin 4 38 s, off 48 s, margin 20
+  53 s). Adaptive domain is now off by default (`SimulationConfig.use_adaptive_domain`).
+- The rising column is mostly buoyant now (`stem_speed_U` 0.25-0.5, was 1.0-2.2): an
+  imposed jet shed regular sheets (strong at 1.2 U, faint at 0.5 U, none without a jet).
+
 ## 0.2.0-beta2 (2026-10-19)
 
 Nuclear support on top of the beta1 rework.

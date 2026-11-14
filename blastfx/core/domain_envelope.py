@@ -9,7 +9,6 @@ def build_domain_envelope(physical, profile) -> dict:
     The envelope is a fixed shape in fireball radii (profile ``envelope_*_R``).
     Under Froude scaling a blast of any size fills the same fraction of it,
     so the voxel size and solver time scale follow from the radius alone.
-    Adaptive domain still trims the active region inside these bounds.
     """
     radius = max(float(physical.characteristic_radius_m), 1e-6)
     lateral = radius * float(profile.envelope_lateral_R)
@@ -20,7 +19,7 @@ def build_domain_envelope(physical, profile) -> dict:
         "max": (lateral, lateral, max_z),
         "size": (lateral * 2.0, lateral * 2.0, max_z - min_z),
         "center": (0.0, 0.0, (min_z + max_z) * 0.5),
-        "adaptive_domain_enabled": True,
+        "adaptive_domain_enabled": False,
         "boundary_top_open": True,
         "boundary_sides_open": True,
     }
