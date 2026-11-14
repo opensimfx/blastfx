@@ -25,7 +25,9 @@ def build_animation(context, collection, controller, props, plan=None):
         build_camera_fx(context, collection, controller, config)
     if props.use_exposure:
         build_exposure(context, collection, controller, config)
+        # Bloom on the fire's highlights; skipped if the scene has its own
+        # compositor tree.
+        build_heat_distortion_compositor(context, controller, config)
     if props.use_heat_distortion:
         build_heat_distortion(context, collection, controller, config)
-        build_heat_distortion_compositor(context, controller, config)
     return config

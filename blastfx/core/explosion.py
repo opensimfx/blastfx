@@ -1,5 +1,5 @@
 import bpy
-from .collections import create_blast_collection, remove_collection
+from .collections import create_blast_collection, remove_collection, remove_generated_children
 from .controller import new_blast_id, tag_controller, is_controller
 from .validation import validate_props, validate_scene
 from .physics import validate_physical_config
@@ -120,7 +120,8 @@ def rebuild_explosion(context, controller):
     # Invalidate cache first
     invalidate_cache(props, blast_id)
 
-    # Remove all generated objects in the collection (keep user objects)
+    # Remove all generated objects and prototype collections (keep user objects)
+    remove_generated_children(collection)
     for obj in list(collection.objects):
         if obj != controller and obj.get("blastfx_generated", False):
             bpy.data.objects.remove(obj, do_unlink=True)

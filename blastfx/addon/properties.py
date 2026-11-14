@@ -126,9 +126,17 @@ class BLASTFX_Props(PropertyGroup):
     use_dust: BoolProperty(name="Ground Surge", default=True)
     use_shockwave: BoolProperty(name="Shockwave", default=True)
     use_debris: BoolProperty(name="Debris", default=False)
-    use_flash: BoolProperty(name="Flash", default=True)
+    use_flash: BoolProperty(
+        name="Fire Light",
+        default=True,
+        description="Detonation flash, then the fire's glow lighting the smoke and surroundings",
+    )
     use_camera_fx: BoolProperty(name="Camera FX", default=True)
-    use_exposure: BoolProperty(name="Exposure Impulse", default=True)
+    use_exposure: BoolProperty(
+        name="Exposure & Bloom",
+        default=True,
+        description="Camera exposure reacts to the flash (relative to the scene's exposure) and the compositor adds bloom. A scene with its own compositor tree is left untouched",
+    )
     use_heat_distortion: BoolProperty(name="Heat Distortion", default=True)
     use_rapatronic: BoolProperty(
         name="Rapatronic Skin",
