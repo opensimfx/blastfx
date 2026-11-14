@@ -25,12 +25,14 @@ def build_stem(context, collection, controller, config):
     solver_speed = scaling.flow_velocity(profile.stem_speed_U * physical.characteristic_velocity_mps)
     configure_flow(
         flow, flow_type="SMOKE", temperature=numerical.temperature_scale * 1.0,
-        density=numerical.density_scale * 2.0,
+        density=numerical.density_scale,
         velocity=(0.0, 0.0, solver_speed),
         velocity_random=0.2, surface_distance=0.5, volume_density=0.9, subframes=4,
     )
-    frames = max(2, int(round(plan.event_frames(profile.stem_feed_T * physical.time_unit_s))))
-    keyframe_inflow(flow, config["start_frame"], config["start_frame"] + frames)
+    time_unit = physical.time_unit_s
+    start = int(config["start_frame"]) + int(round(plan.event_frames(profile.stem_delay_T * time_unit)))
+    frames = max(2, int(round(plan.event_frames(profile.stem_feed_T * time_unit))))
+    keyframe_inflow(flow, start, start + frames)
     obj.hide_render = True
     obj.display_type = "WIRE"
     obj["blastfx_role"] = "emitter"

@@ -5,64 +5,112 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True)
 class ShadingConfig:
-    """Volume shading inputs derived per profile (plan T2.5).
+    """Scale-free volume shading for one explosion type (Phase B).
 
-    Fire renders from the Mantaflow `flame` grid through Emission; smoke
-    colors through a density ColorRamp (light thin wisps -> near-black
-    dense core). Blackbody stays wired but off until visually tuned:
-    flame-grid emission + blackbody together double the fire exposure.
+    Smoke: the Mantaflow density grid sets the extinction, normalised by the
+    fireball radius so ``optical_depth`` is the depth across one radius of
+    grid-density-1 smoke at any size (Cycles density is per metre, so a fixed
+    multiplier made small blasts see-through and big ones opaque). The
+    ColorRamp maps density to scattering albedo: thin edges scatter, dense
+    soot mostly absorbs, but never below ~0.05 so the fire can light it.
+
+    Fire: the flame grid maps linearly onto ``fire_temperature_k`` and a
+    Blackbody node colours the emission (white-hot core, orange body, deep
+    red edges). Emission is extinction x brightness x flame**fire_gamma
+    (Kirchhoff), so ``fire_brightness`` is the radiance of an optically
+    thick, fully burning core at any size. Mantaflow density runs ~0-3 in
+    these blasts (measured), hence the ramp gain.
     """
-    smoke_ramp: tuple  # ((position, rgba), ...) ascending positions
-    density_multiplier: float
-    temperature_multiplier: float = 1.0
-    blackbody_intensity: float = 0.0
-    flame_color: tuple = (1.0, 0.34, 0.03, 1.0)
-    flame_multiplier: float = 5.0
-    anisotropy: float = 0.0
+    smoke_ramp: tuple  # ((density x ramp_gain, rgba albedo), ...) ascending
+    optical_depth: float = 8.0
+    ramp_gain: float = 0.35
+    fire_temperature_k: tuple = (900.0, 2600.0)
+    fire_brightness: float = 28.0
+    fire_gamma: float = 1.5
+    # How much a fully burning cell darkens the smoke albedo (0-1).
+    burning_soot: float = 0.9
+    # Fire grade applied only under AgX (Blender's default view), which turns
+    # raw blackbody orange salmon-pink at any exposure and bleaches bright
+    # emission (measured against Filmic on the same bake). Filmic and other
+    # views get the raw blackbody colour and full brightness.
+    agx_hue_shift: float = 0.02
+    agx_saturation: float = 1.6
+    agx_brightness: float = 0.3
+    anisotropy: float = 0.15
+    # Fire light (animation/flash.py): glow length in T and colour temperature.
+    fire_light_T: float = 2.0
+    fire_light_k: float = 1900.0
 
     def as_dict(self):
         return asdict(self)
 
 
 SHADING = {
+    # High-explosive charge: hot short flash, brown earth-laden smoke.
     "GROUND": ShadingConfig(
         smoke_ramp=(
-            (0.0, (0.45, 0.36, 0.28, 1.0)),
-            (0.18, (0.34, 0.24, 0.16, 1.0)),
-            (0.55, (0.09, 0.06, 0.045, 1.0)),
-            (1.0, (0.015, 0.01, 0.008, 1.0)),
+            (0.0, (0.40, 0.33, 0.26, 1.0)),
+            (0.2, (0.24, 0.19, 0.14, 1.0)),
+            (0.6, (0.10, 0.08, 0.06, 1.0)),
+            (1.0, (0.05, 0.042, 0.035, 1.0)),
         ),
-        density_multiplier=0.35,
+        optical_depth=7.0,
+        fire_temperature_k=(1250.0, 3000.0),
+        fire_brightness=35.0,
+        fire_light_T=1.2,
+        fire_light_k=2200.0,
     ),
+    # Petroleum fire: the darkest, sootiest smoke and the coolest, most
+    # orange flame.
     "FUEL": ShadingConfig(
         smoke_ramp=(
-            (0.0, (0.50, 0.45, 0.40, 1.0)),
-            (0.18, (0.30, 0.25, 0.20, 1.0)),
-            (0.55, (0.08, 0.06, 0.05, 1.0)),
-            (1.0, (0.012, 0.01, 0.008, 1.0)),
+            (0.0, (0.30, 0.28, 0.26, 1.0)),
+            (0.2, (0.14, 0.13, 0.12, 1.0)),
+            (0.6, (0.06, 0.055, 0.05, 1.0)),
+            (1.0, (0.035, 0.032, 0.03, 1.0)),
         ),
-        density_multiplier=0.30,
+        optical_depth=10.0,
+        fire_temperature_k=(1100.0, 2500.0),
+        fire_brightness=25.0,
+        fire_light_T=2.5,
+        fire_light_k=1800.0,
     ),
     "LARGE": ShadingConfig(
         smoke_ramp=(
-            (0.0, (0.55, 0.50, 0.44, 1.0)),
-            (0.18, (0.36, 0.31, 0.26, 1.0)),
-            (0.55, (0.11, 0.09, 0.075, 1.0)),
-            (1.0, (0.014, 0.012, 0.01, 1.0)),
+            (0.0, (0.38, 0.35, 0.31, 1.0)),
+            (0.2, (0.20, 0.18, 0.155, 1.0)),
+            (0.6, (0.08, 0.07, 0.06, 1.0)),
+            (1.0, (0.045, 0.04, 0.036, 1.0)),
         ),
-        density_multiplier=0.22,
+        optical_depth=8.0,
+        fire_temperature_k=(1150.0, 2700.0),
+        fire_light_T=4.5,
     ),
-    # Fallout-grey column, near-white incandescent core flash. The brown-
-    # orange NOx cap comes free from the fire's emission against grey smoke.
+    "HEAVY": ShadingConfig(
+        smoke_ramp=(
+            (0.0, (0.36, 0.31, 0.26, 1.0)),
+            (0.2, (0.19, 0.16, 0.13, 1.0)),
+            (0.6, (0.075, 0.065, 0.055, 1.0)),
+            (1.0, (0.042, 0.038, 0.034, 1.0)),
+        ),
+        optical_depth=9.0,
+        fire_temperature_k=(1150.0, 2800.0),
+        fire_light_T=4.0,
+    ),
+    # Fallout-grey column with a near-white incandescent core; the brown-
+    # orange cap comes from the cooler flame edges against grey smoke.
     "NUCLEAR": ShadingConfig(
         smoke_ramp=(
-            (0.0, (0.45, 0.43, 0.40, 1.0)),
-            (0.45, (0.22, 0.19, 0.16, 1.0)),
-            (1.0, (0.08, 0.07, 0.06, 1.0)),
+            (0.0, (0.55, 0.53, 0.50, 1.0)),
+            (0.45, (0.32, 0.30, 0.27, 1.0)),
+            (1.0, (0.16, 0.15, 0.14, 1.0)),
         ),
-        density_multiplier=0.30,
-        flame_color=(1.0, 0.88, 0.62, 1.0),
-        anisotropy=0.1,
+        optical_depth=6.0,
+        fire_temperature_k=(1800.0, 6500.0),
+        fire_brightness=60.0,
+        anisotropy=0.2,
+        fire_light_T=2.0,
+        fire_light_k=4500.0,
     ),
 }
 
@@ -129,9 +177,11 @@ class ExplosionProfile:
     burst_emission_T: float = 0.3
     burst_lifetime_T: float = 0.3
 
-    # Rising column.
+    # Rising column: starts once the fireball has lifted (a column fed from
+    # frame 1 rendered as a black chimney standing in the fireball).
     stem_speed_U: float = 1.0
     stem_feed_T: float = 2.0
+    stem_delay_T: float = 0.5
 
     # Ground dust surge: cool (negative temperature) smoke spreading outward.
     dust_spread_U: float = 0.5
