@@ -19,6 +19,39 @@ Realism and bake-time work. Plan: Phase 0 measure, Phase 1 bugs and speed, then 
   peak memory, cache bytes, per-phase span, solver settings), outside `job/` so recovery keeps it.
 - New: `tools/bake_benchmark.py` times a bake for a preset and tier in desktop Blender.
 
+### Phase A: scale-correct physics (Froude scaling)
+
+Measured in Blender 5.2.3 (`docs/REALISM_PLAN.md`): Mantaflow divides buoyancy by the
+domain size, so big blasts barely rose; `velocity_normal` is in grid units, so dust and
+shock pushes changed with resolution; per-solver-time rates (burning, vorticity) ran faster
+on bigger domains.
+
+- New `core/froude.py`: every blast runs as a reference-sized model with
+  `time_scale = playback x sqrt(S / 4 m)`; flow velocities, particle velocity factor,
+  `velocity_normal` (grid units), burning rate, vorticity and dissolve are converted from
+  real values. A 4 m and a 40 m blast now match within ~15% in plume height, spread, smoke
+  mass and flame lifetime at Froude-scaled frames (the old code diverged 2-5x).
+- Profiles are scale-free: velocities in `U = sqrt(gR)`, times in `T = sqrt(R/g)`, domain
+  shape in R. Shot length no longer changes how fast the blast moves; smoke fade is a
+  profile property, not half the shot.
+- Domain is a fixed shape in fireball radii; resolution is automatic from voxels per
+  radius (Draft 8 / Preview 14 / Final 24). Old presets had 4-10 voxels per radius in
+  domains up to 62x the fireball.
+- Presets are real-world sizes (4 m charge ... 80 m heavy burst) with explicit playback
+  speed (slow motion). `Scale` is now "Fireball Size" (diameter, m), `Speed` is "Playback
+  Speed". Presets no longer pin resolution (0 = auto).
+- Very large blasts that exceed the time-scale limit get a warning with the buoyancy
+  shortfall (nuclear presets).
+- One planning function (`core/blast_plan.py`) replaces three copies of the
+  derive/config/envelope sequence in create, rebuild, simulation and animation.
+- Fix: repo-root JSON presets silently replaced factory presets with stale values
+  (`large_ground.json` forced 24 s). Factory ids now win.
+- Fix: Rebuild left an emitter active, so Bake / Rebuild right after failed with "Select a
+  Blast FX controller". Rebuild also reports plan warnings now.
+- Fix: `tools/physics_validation.py` imported from a stale hard-coded path.
+- Profiles need visual retuning on top of this (expected; values were tuned around the
+  scale bug).
+
 ## 0.2.0-beta2 (2026-10-19)
 
 Nuclear support on top of the beta1 rework.

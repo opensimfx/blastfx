@@ -226,11 +226,19 @@ class BLASTFX_OT_rebuild(Operator):
         try:
             if active_job():
                 raise RuntimeError("Cancel the active bake before rebuilding the blast.")
-            rebuild_explosion(context, controller)
+            warnings = rebuild_explosion(context, controller)
         except Exception as exc:
             self.report({"ERROR"}, f"Rebuild failed: {exc}")
             return {"CANCELLED"}
 
+        for warning in warnings:
+            self.report({"WARNING"}, warning)
+        # Builders make emitters active to add particle systems; hand the
+        # controller back so Bake / Rebuild work without reselecting it.
+        for obj in context.selected_objects:
+            obj.select_set(False)
+        context.view_layer.objects.active = controller
+        controller.select_set(True)
         self.report({"INFO"}, "Blast rebuilt.")
         return {"FINISHED"}
 

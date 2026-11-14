@@ -47,7 +47,7 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
                    fuel=0.0, velocity=(0.0, 0.0, 0.0), velocity_normal=0.0,
                    velocity_random=0.0, surface_distance=1.0,
                    volume_density=1.0, subframes=2, flow_source="MESH",
-                   particle_system=None):
+                   particle_system=None, velocity_factor=1.0):
     """Configure only FluidFlowSettings properties documented by Blender 5.2."""
     required = {
         "flow_source": flow_source,
@@ -62,6 +62,9 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
         "velocity_coord": Vector(velocity),
         "velocity_normal": max(-100.0, min(100.0, float(velocity_normal))),
         "velocity_random": max(0.0, min(10.0, float(velocity_random))),
+        # Multiplies particle/object source velocity; Froude scaling uses it
+        # to hand the solver 1/time_scale of the scene speed.
+        "velocity_factor": max(-100.0, min(100.0, float(velocity_factor))),
         "subframes": max(0, min(200, int(subframes))),
         "use_inflow": True,
     }

@@ -54,7 +54,10 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     fps = context.scene.render.fps / context.scene.render.fps_base
     radius = physical.characteristic_radius_m * profile.source_radius
     start = int(config["start_frame"])
-    emission, lifetime, _ = profile.burst_timing(fps)
+    # Windows are event times (in T) stretched by slow motion into frames.
+    emission, lifetime, _ = profile.burst_frames(
+        physical.time_unit_s, numerical.playback_speed, fps
+    )
 
     name = component_name(blast_id, suffix)
     obj = add_mesh_object(
@@ -85,10 +88,9 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # particles would fight the buoyancy-driven ascension (research tip).
         settings.effector_weights.gravity = 0.0
         settings.mass = 0.1
-        # The fluid takes its initial velocity from these particles. Without
-        # these two lines the burst left at Blender's default speed (about
-        # 1 m/s), so the profile's burst_normal_velocity / burst_random_velocity
-        # never reached the solver.
+        # The fluid takes its initial velocity from these particles: scene
+        # speed (burst_speed_U * U * playback). The flow's velocity_factor
+        # then divides it by the solver time scale (core.froude).
         settings.normal_factor = float(numerical.burst_normal_velocity)
         settings.factor_random = float(numerical.burst_random_velocity)
         set_particle_seed(settings, _particle_seed(numerical.seed, suffix))
@@ -97,10 +99,8 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
 
     _, flow = configure_fluid_modifier(obj, "FLOW")
     # Initial velocity comes from the particle system; the cap mesh itself
-    # never injects (flow_source=PARTICLE_SYSTEM). Research flow-heat trick:
-    # keep the injected temperature tiny (profile.flow_heat ~ 0.05, the
-    # Mantaflow "Flow Heat" slider maps to this RNA property) so buoyancy
-    # doesn't blow the fire out and burning stays visible longer.
+    # never injects (flow_source=PARTICLE_SYSTEM). Injected heat is the
+    # profile's flow_heat scaled by the artist's fire temperature.
     configure_flow(
         flow,
         flow_type="BOTH",
@@ -110,6 +110,7 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         density=numerical.density_scale,
         fuel=profile.fuel_amount,
         subframes=5,
+        velocity_factor=numerical.particle_velocity_factor,
     )
     # The particle system IS the injection window: particles are seeded over
     # `emission` frames and live `lifetime` frames, so smoke stops being fed

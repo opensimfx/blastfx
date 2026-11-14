@@ -2,26 +2,25 @@ import bpy
 from .collections import create_blast_collection, remove_collection
 from .controller import new_blast_id, tag_controller, is_controller
 from .validation import validate_props, validate_scene
-from .physics import AmbientConditions, PhysicalConfig, derive_physics, validate_physical_config, gravity_magnitude, effective_scale_m
+from .physics import validate_physical_config
 from .physical_state import build_physical_state, state_hash
 from .blender_api import runtime_self_test
 from .cache import invalidate as invalidate_cache
+from .blast_plan import plan_blast
 from ..simulation import build_explosion
-from ..simulation.physical_config import build_simulation_config
 from ..animation import build_animation
-from .domain_envelope import build_domain_envelope, envelope_state
-from .explosion_profile import profile_for, profile_state
+from .domain_envelope import envelope_state
+from .explosion_profile import profile_state
 from ..render.settings import configure_render_settings
 
 
-def create_explosion(context):
-    props = context.scene.blastfx
+def _validated_plan(context, props):
+    """Validate props/scene/runtime and return (plan, validation)."""
     validation = validate_props(props)
     scene_validation = validate_scene(context.scene)
     validation.errors.extend(scene_validation.errors)
     validation.warnings.extend(scene_validation.warnings)
     validation.ok = not validation.errors
-
     if not validation.ok:
         raise ValueError("; ".join(validation.errors))
 
@@ -29,48 +28,39 @@ def create_explosion(context):
     if api_errors:
         raise RuntimeError("Blender/Mantaflow API self-test failed: " + "; ".join(api_errors))
 
+    plan = plan_blast(props, context.scene)
+    physics_errors = validate_physical_config(plan.physical_config)
+    if physics_errors:
+        raise ValueError("; ".join(physics_errors))
+    validation.warnings.extend(plan.warnings)
+    return plan, validation
+
+
+def _tag_plan(controller, plan, props, scene, blast_id):
+    """Store the plan's cache identity and headline values on the controller."""
+    physical = plan.physical
+    physical_state = build_physical_state(
+        props, scene, blast_id, physical, plan.numerical, plan.frame_start, plan.frame_end,
+        envelope_state(plan.envelope),
+        profile_state(plan.profile),
+    )
+    controller["blastfx_physics_state"] = state_hash(physical_state)
+    controller["blastfx_characteristic_radius_m"] = physical.characteristic_radius_m
+    controller["blastfx_characteristic_time_s"] = physical.characteristic_time_s
+    controller["blastfx_characteristic_velocity_mps"] = physical.characteristic_velocity_mps
+    controller["blastfx_time_unit_s"] = physical.time_unit_s
+    controller["blastfx_solver_time_scale"] = plan.numerical.time_scale_multiplier
+    controller["blastfx_domain_envelope"] = envelope_state(plan.envelope)
+    controller["blastfx_explosion_profile"] = profile_state(plan.profile)
+
+
+def create_explosion(context):
+    props = context.scene.blastfx
+    plan, validation = _validated_plan(context, props)
+
     # Volume-heavy explosions need Cycles volume settings; sample count
     # follows the active quality (DRAFT 32 / PREVIEW 128 / FINAL 512).
     configure_render_settings(context.scene, quality=props.quality)
-
-    physical_config = PhysicalConfig(
-        scale_m=effective_scale_m(props),
-        reference_energy=float(props.reference_energy),
-        intensity=float(props.intensity),
-        duration_s=float(props.duration),
-        ambient=AmbientConditions(gravity=gravity_magnitude(context.scene.gravity)),
-    )
-
-    physics_errors = validate_physical_config(physical_config)
-    if physics_errors:
-        raise ValueError("; ".join(physics_errors))
-
-    derived = derive_physics(physical_config)
-    profile = profile_for(props.explosion_type)
-    fps = context.scene.render.fps / context.scene.render.fps_base
-    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
-    numerical = build_simulation_config(
-        derived,
-        props.quality,
-        props.resolution,
-        props.noise_upres,
-        props.seed,
-        props.turbulence,
-        props.smoke_density,
-        props.fire_temperature,
-        profile,
-        timeline_duration_s=timeline_duration,
-        fps=fps,
-    )
-    frame_start = int(props.start_frame)
-    frame_end = frame_start + max(1, int(round(timeline_duration * fps)))
-    domain_envelope = build_domain_envelope(
-        derived,
-        numerical,
-        gravity_magnitude(context.scene.gravity),
-        timeline_duration,
-        profile,
-    )
 
     blast_id = new_blast_id()
     collection = create_blast_collection(context.scene, blast_id)
@@ -80,22 +70,11 @@ def create_explosion(context):
     controller_data.location = context.scene.cursor.location
     collection.objects.link(controller_data)
     tag_controller(controller_data, props, blast_id)
-
-    physical_state = build_physical_state(
-        props, context.scene, blast_id, derived, numerical, frame_start, frame_end,
-        envelope_state(domain_envelope),
-        profile_state(profile),
-    )
-    controller_data["blastfx_physics_state"] = state_hash(physical_state)
-    controller_data["blastfx_characteristic_radius_m"] = derived.characteristic_radius_m
-    controller_data["blastfx_characteristic_time_s"] = derived.characteristic_time_s
-    controller_data["blastfx_characteristic_velocity_mps"] = derived.characteristic_velocity_mps
-    controller_data["blastfx_domain_envelope"] = envelope_state(domain_envelope)
-    controller_data["blastfx_explosion_profile"] = profile_state(profile)
+    _tag_plan(controller_data, plan, props, context.scene, blast_id)
 
     try:
-        build_explosion(context, collection, controller_data, props)
-        build_animation(context, collection, controller_data, props)
+        build_explosion(context, collection, controller_data, props, plan)
+        build_animation(context, collection, controller_data, props, plan)
     except Exception:
         # Creation is transactional: don't leave a half-built blast behind
         # when a Mantaflow/material/animation API error occurs.
@@ -136,58 +115,7 @@ def rebuild_explosion(context, controller):
         raise ValueError("Controller not in a Blast FX collection.")
 
     props = context.scene.blastfx
-
-    # Validate current props
-    validation = validate_props(props)
-    scene_validation = validate_scene(context.scene)
-    validation.errors.extend(scene_validation.errors)
-    validation.warnings.extend(scene_validation.warnings)
-    validation.ok = not validation.errors
-    if not validation.ok:
-        raise ValueError("; ".join(validation.errors))
-
-    api_errors = runtime_self_test()
-    if api_errors:
-        raise RuntimeError("Blender/Mantaflow API self-test failed: " + "; ".join(api_errors))
-
-    physical_config = PhysicalConfig(
-        scale_m=effective_scale_m(props),
-        reference_energy=float(props.reference_energy),
-        intensity=float(props.intensity),
-        duration_s=float(props.duration),
-        ambient=AmbientConditions(gravity=gravity_magnitude(context.scene.gravity)),
-    )
-
-    physics_errors = validate_physical_config(physical_config)
-    if physics_errors:
-        raise ValueError("; ".join(physics_errors))
-
-    derived = derive_physics(physical_config)
-    profile = profile_for(props.explosion_type)
-    fps = context.scene.render.fps / context.scene.render.fps_base
-    timeline_duration = derived.characteristic_time_s / max(float(props.speed), 0.05)
-    numerical = build_simulation_config(
-        derived,
-        props.quality,
-        props.resolution,
-        props.noise_upres,
-        props.seed,
-        props.turbulence,
-        props.smoke_density,
-        props.fire_temperature,
-        profile,
-        timeline_duration_s=timeline_duration,
-        fps=fps,
-    )
-    frame_start = int(props.start_frame)
-    frame_end = frame_start + max(1, int(round(timeline_duration * fps)))
-    domain_envelope = build_domain_envelope(
-        derived,
-        numerical,
-        gravity_magnitude(context.scene.gravity),
-        timeline_duration,
-        profile,
-    )
+    plan, validation = _validated_plan(context, props)
 
     # Invalidate cache first
     invalidate_cache(props, blast_id)
@@ -197,23 +125,11 @@ def rebuild_explosion(context, controller):
         if obj != controller and obj.get("blastfx_generated", False):
             bpy.data.objects.remove(obj, do_unlink=True)
 
-    # Update controller tags
     tag_controller(controller, props, blast_id)
-    controller["blastfx_characteristic_radius_m"] = derived.characteristic_radius_m
-    controller["blastfx_characteristic_time_s"] = derived.characteristic_time_s
-    controller["blastfx_characteristic_velocity_mps"] = derived.characteristic_velocity_mps
-    controller["blastfx_domain_envelope"] = envelope_state(domain_envelope)
-    controller["blastfx_explosion_profile"] = profile_state(profile)
-
-    physical_state = build_physical_state(
-        props, context.scene, blast_id, derived, numerical, frame_start, frame_end,
-        envelope_state(domain_envelope),
-        profile_state(profile),
-    )
-    controller["blastfx_physics_state"] = state_hash(physical_state)
+    _tag_plan(controller, plan, props, context.scene, blast_id)
 
     # Rebuild simulation and animation
-    build_explosion(context, collection, controller, props)
-    build_animation(context, collection, controller, props)
+    build_explosion(context, collection, controller, props, plan)
+    build_animation(context, collection, controller, props, plan)
 
-    return controller
+    return list(validation.warnings)

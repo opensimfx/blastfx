@@ -3,38 +3,18 @@
 from __future__ import annotations
 
 
-def build_domain_envelope(physical, numerical, gravity: float, duration_s: float, profile=None) -> dict:
-    """Return simulation-space bounds for the complete planned event."""
-    radius = max(float(physical.characteristic_radius_m), 1e-6)
-    velocity = max(float(physical.characteristic_velocity_mps), 0.1)
-    duration = max(float(duration_s), 1e-4)
-    buoyancy = max(float(physical.buoyancy_strength), 0.0)
-    gravity = max(float(gravity), 1e-6)
+def build_domain_envelope(physical, profile) -> dict:
+    """Return simulation-space bounds for the complete planned event.
 
-    margin = max(radius * 0.5, float(numerical.voxel_size_m) * 4.0)
-    # Margin is the larger of a radius-proportional term and a numerical
-    # safety (a few voxels). The voxel floor is intentionally constant because
-    # it represents solver resolution, not physical scale.
-    # The initial blast footprint itself needs room before expansion begins.
-    # Keep this tied to the characteristic radius, then extend it by velocity.
-    expansion_factor = float(getattr(profile, "expansion_factor", 1.0))
-    lateral = max(
-        radius * 6.0 * expansion_factor,
-        radius + velocity * duration * 0.9 * expansion_factor + margin,
-    )
-    source_radius = radius
-    if profile is not None:
-        source_radius = max(
-            source_radius,
-            radius * 1.15 * expansion_factor,
-        )
-        max_z = radius + velocity * duration
-    else:
-        max_z = radius + velocity * duration
-    buoyant_velocity = (gravity * radius * (1.0 + buoyancy)) ** 0.5
-    vertical_rise = velocity * duration + buoyant_velocity * duration * 0.5
-    min_z = -source_radius - margin
-    max_z = max(max_z, radius + vertical_rise) + margin
+    The envelope is a fixed shape in fireball radii (profile ``envelope_*_R``).
+    Under Froude scaling a blast of any size fills the same fraction of it,
+    so the voxel size and solver time scale follow from the radius alone.
+    Adaptive domain still trims the active region inside these bounds.
+    """
+    radius = max(float(physical.characteristic_radius_m), 1e-6)
+    lateral = radius * float(profile.envelope_lateral_R)
+    min_z = -radius * float(profile.envelope_bottom_R)
+    max_z = radius * float(profile.envelope_top_R)
     return {
         "min": (-lateral, -lateral, min_z),
         "max": (lateral, lateral, max_z),
@@ -43,11 +23,12 @@ def build_domain_envelope(physical, numerical, gravity: float, duration_s: float
         "adaptive_domain_enabled": True,
         "boundary_top_open": True,
         "boundary_sides_open": True,
-        "margin_m": margin,
-        "duration_s": duration,
-        "numerical_voxel_size_m": float(numerical.voxel_size_m),
-        "profile_expansion_factor": expansion_factor,
     }
+
+
+def longest_side(envelope: dict) -> float:
+    """Longest domain side in metres: Mantaflow's FLUID_DOMAIN_SIZE."""
+    return max(float(value) for value in envelope["size"])
 
 
 def envelope_state(envelope: dict) -> dict:

@@ -1,3 +1,5 @@
+from ..core.froude import solver_scaling
+from ..core.domain_envelope import longest_side
 from ..utils.animation import action_fcurves
 from ..utils.naming import component_name
 from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
@@ -7,8 +9,11 @@ from .ground import ground_top_z
 def build_dust(context, collection, controller, config):
     physical = config["physical"]
     numerical = config["numerical"]
-    profile = config.get("profile")
+    profile = config["profile"]
+    plan = config["plan"]
+    scaling = solver_scaling(longest_side(config["domain_envelope"]), numerical.playback_speed)
     radius = physical.characteristic_radius_m
+    velocity_unit = physical.characteristic_velocity_mps
     name = component_name(controller["blastfx_id"], "Dust")
     depth = max(radius * 0.3, 0.02)
 
@@ -16,7 +21,7 @@ def build_dust(context, collection, controller, config):
     # keep it hugging the floor with negative (cool) air temperature
     # (Iridesium: initial temperature about -3 = cool ground dust).
     location = controller.location
-    if profile and profile.ground_surge:
+    if profile.ground_surge:
         location = (
             location[0], location[1],
             ground_top_z(config, controller) + depth / 2.0,
@@ -29,30 +34,25 @@ def build_dust(context, collection, controller, config):
     _, flow = configure_fluid_modifier(obj, "FLOW")
     configure_flow(
         flow, flow_type="SMOKE",
-        temperature=numerical.temperature_scale * (
-            profile.dust_temperature if profile else -2.0
+        temperature=numerical.temperature_scale * profile.dust_temperature,
+        density=numerical.density_scale * profile.dust_density_factor,
+        velocity=(0.0, 0.0, scaling.flow_velocity(profile.dust_lift_U * velocity_unit)),
+        # velocity_normal is in grid units, not m/s (measured): convert so the
+        # surge spreads at the same real speed at every resolution.
+        velocity_normal=scaling.flow_normal_velocity(
+            profile.dust_spread_U * velocity_unit, numerical.voxel_size_m
         ),
-        density=numerical.density_scale * (
-            profile.dust_density_factor if profile else 2.0
-        ),
-        velocity=(0.0, 0.0, numerical.characteristic_velocity_mps * 0.10),
-        velocity_normal=numerical.characteristic_velocity_mps * (
-            profile.dust_velocity_normal_factor if profile else 0.30
-        ),
-        velocity_random=profile.dust_velocity_random if profile else 0.65,
+        velocity_random=profile.dust_velocity_random,
         surface_distance=0.25, volume_density=1.0, subframes=3,
     )
-    duration_s = config.get("timeline_duration_s", config["duration"])
-    duration_factor = profile.dust_duration_factor if profile else 0.35
-    frames = max(2, int(context.scene.render.fps * duration_s * duration_factor))
+    time_unit = physical.time_unit_s
+    frames = max(2, int(round(plan.event_frames(profile.dust_feed_T * time_unit))))
     start_frame = config["start_frame"]
     keyframe_inflow(flow, start_frame, start_frame + frames)
 
-    # Expanding dust donut: grow the emitter ring outward over its first
-    # ~1-2 s so smoke injection sweeps a visible ground ring instead of a
-    # static cylinder puff (same LINEAR keyframe pattern as the visible
-    # shockwave ring in animation/shockwave.py).
-    ring_frames = max(6, round(context.scene.render.fps * min(duration_s * duration_factor, 2.0)))
+    # Expanding dust donut: grow the emitter ring outward so smoke injection
+    # sweeps a visible ground ring instead of a static cylinder puff.
+    ring_frames = max(2, int(round(plan.event_frames(profile.dust_ring_T * time_unit))))
     obj.scale = (0.45, 0.45, 0.45)
     obj.keyframe_insert("scale", frame=start_frame)
     obj.scale = (1.0, 1.0, 1.0)
