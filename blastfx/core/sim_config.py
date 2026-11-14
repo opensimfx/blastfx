@@ -51,6 +51,11 @@ class SimulationConfig:
     adapt_margin: int = 20
     adapt_threshold: float = 0.001
     additional_res: int = 4
+    # Adaptive domain off: its moving box clipped rising smoke every step
+    # into horizontal bands (measured on medium/large_ground; margins 4 and
+    # 12 banded, 20 mostly not), and inside the tight Froude envelope it
+    # saved little (margin 4: 38 s, off: 48 s, margin 20: 53 s at Draft).
+    use_adaptive_domain: bool = False
 
 
 # Solver cost per quality tier. Draft exists to judge motion quickly: no noise

@@ -178,8 +178,11 @@ class ExplosionProfile:
     burst_lifetime_T: float = 0.3
 
     # Rising column: starts once the fireball has lifted (a column fed from
-    # frame 1 rendered as a black chimney standing in the fireball).
-    stem_speed_U: float = 1.0
+    # frame 1 rendered as a black chimney standing in the fireball). It is
+    # mostly buoyant hot smoke with a gentle push: an imposed jet of ~1 U
+    # shed regular horizontal sheets (measured banding at 1.2 U, faint at
+    # 0.5 U, none when buoyancy alone drives it).
+    stem_speed_U: float = 0.25
     stem_feed_T: float = 2.0
     stem_delay_T: float = 0.5
 
@@ -249,7 +252,7 @@ PROFILES = {
         event_T=9.0, envelope_lateral_R=4.5, envelope_top_R=7.0, envelope_bottom_R=1.5,
         burst_count=1800, burst_speed_U=3.0, burst_random_U=1.5,
         burst_emission_T=0.3, burst_lifetime_T=0.3,
-        stem_speed_U=1.0, stem_feed_T=2.0,
+        stem_speed_U=0.25, stem_feed_T=2.0,
         camera_distance_factor=2.2,
     ),
     # Large conventional ground blast: hot source, buoyant column, surge.
@@ -262,7 +265,7 @@ PROFILES = {
         event_T=10.0, envelope_lateral_R=5.0, envelope_top_R=10.0, envelope_bottom_R=1.0,
         burst_count=2400, burst_speed_U=3.0, burst_random_U=1.5,
         burst_emission_T=0.3, burst_lifetime_T=0.3,
-        stem_speed_U=1.2, stem_feed_T=2.5,
+        stem_speed_U=0.25, stem_feed_T=2.5,
         dust_spread_U=0.6, dust_lift_U=0.03, dust_feed_T=2.0, dust_ring_T=1.2,
         dust_density_factor=0.8, dust_velocity_random=0.25, dust_temperature=-2.5,
         shock_spread_U=1.5, shock_feed_T=0.5,
@@ -278,16 +281,16 @@ PROFILES = {
         event_T=10.0, envelope_lateral_R=5.5, envelope_top_R=11.0, envelope_bottom_R=1.0,
         burst_count=4000, burst_speed_U=3.5, burst_random_U=1.5,
         burst_emission_T=0.3, burst_lifetime_T=0.26,
-        stem_speed_U=1.5, stem_feed_T=3.0,
+        stem_speed_U=0.3, stem_feed_T=3.0,
         dust_spread_U=0.7, dust_lift_U=0.03, dust_feed_T=2.0, dust_ring_T=1.2,
         dust_density_factor=1.2, dust_velocity_random=0.30,
         shock_delay_T=0.04, shock_spread_U=1.8, shock_feed_T=0.5,
         shockwave_radius_factor=8.0, camera_distance_factor=3.0,
     ),
-    # Trinity-style burst. Burst and stem speeds come from the old tuning at
-    # its real size (14x / 12x of r/t at R = 86 m equal 2.6 U and 2.2 U),
-    # which was a hand-made Froude scaling; windows likewise (48 / 80 frames
-    # = 0.67 T / 1.12 T). Shock stays near the 5-psi relation (~3.7x R).
+    # Trinity-style burst. Burst speed comes from the old tuning at its real
+    # size (14x r/t at R = 86 m = 2.6 U, a hand-made Froude scaling); windows
+    # likewise (48 / 80 frames = 0.67 T / 1.12 T). The old 2.2 U stem jet is
+    # cut to 0.5 U now that buoyancy works (jets band, see stem_speed_U). Shock stays near the 5-psi relation (~3.7x R).
     "NUCLEAR": ExplosionProfile(
         source_radius=1.0, fuel_amount=5.0, temperature=1.5, density=1.6,
         burning_rate=0.22, flame_vorticity=0.35, flame_smoke=3.0,
@@ -297,7 +300,7 @@ PROFILES = {
         event_T=5.4, envelope_lateral_R=5.4, envelope_top_R=6.0, envelope_bottom_R=1.5,
         burst_count=4000, burst_speed_U=2.6, burst_random_U=1.85,
         burst_emission_T=0.67, burst_lifetime_T=1.12,
-        stem_speed_U=2.2, stem_feed_T=3.2,
+        stem_speed_U=0.5, stem_feed_T=3.2,
         dust_spread_U=0.4, dust_lift_U=0.02, dust_feed_T=1.6, dust_ring_T=0.67,
         dust_density_factor=0.9, dust_velocity_random=0.25, dust_temperature=-2.5,
         shock_delay_T=0.1, shock_spread_U=1.2, shock_feed_T=0.5,

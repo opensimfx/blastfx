@@ -160,3 +160,8 @@ def test_zero_duration_means_natural_event_length():
     assert plan.physical.characteristic_time_s == pytest.approx(expected)
     # Slow motion stretches the frame count, not the event.
     assert plan.frame_end - plan.frame_start == round(expected / 0.5 * 24)
+
+
+def test_adaptive_domain_is_off_by_default():
+    # Its moving box clipped rising smoke into horizontal bands (measured).
+    assert build_simulation_config(_physical(), "FINAL", 0, 2, 7).use_adaptive_domain is False

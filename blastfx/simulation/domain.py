@@ -45,7 +45,7 @@ def build_domain(context, collection, controller, config):
     set_required_rna(domain,
         resolution_max=numerical.domain_resolution,
         time_scale=max(0.0001, min(10.0, numerical.time_scale_multiplier)),
-        use_adaptive_domain=True,
+        use_adaptive_domain=bool(numerical.use_adaptive_domain),
         adapt_threshold=float(numerical.adapt_threshold),
         adapt_margin=int(numerical.adapt_margin),
         cache_type="ALL",
