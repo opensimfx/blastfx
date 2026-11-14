@@ -27,6 +27,34 @@ class SimulationConfig:
     burst_count: int
     burst_normal_velocity: float
     burst_random_velocity: float
+    # Solver-cost knobs chosen per quality tier (see TIER_SOLVER). Defaults
+    # equal the previous hard-coded values, so a config built without a tier
+    # behaves as before.
+    timesteps_min: int = 2
+    timesteps_max: int = 8
+    adapt_margin: int = 20
+    adapt_threshold: float = 0.001
+    additional_res: int = 4
+
+
+# Solver cost per quality tier. Draft exists to judge motion quickly: no noise
+# pass, loose adaptive-domain margin, few substeps. Final keeps full fidelity.
+# Values start from Blender's own defaults (adapt_margin 4, additional_res 0,
+# timesteps 1-4); Phase 0 timings decide whether they move. Tier never changes
+# the physical event (see burst_quality_factor and quality_factor below).
+TIER_SOLVER = {
+    "DRAFT": {"noise": False, "timesteps_min": 1, "timesteps_max": 4,
+              "adapt_margin": 4, "adapt_threshold": 0.002, "additional_res": 0},
+    "PREVIEW": {"noise": True, "timesteps_min": 1, "timesteps_max": 6,
+                "adapt_margin": 8, "adapt_threshold": 0.002, "additional_res": 2},
+    "FINAL": {"noise": True, "timesteps_min": 1, "timesteps_max": 8,
+              "adapt_margin": 12, "adapt_threshold": 0.001, "additional_res": 4},
+}
+
+
+def tier_solver(quality):
+    """Solver-cost settings for a quality tier (unknown tiers use PREVIEW)."""
+    return TIER_SOLVER.get(quality, TIER_SOLVER["PREVIEW"])
 
 
 def build_simulation_config(
@@ -53,10 +81,13 @@ def build_simulation_config(
     domain_resolution = max(16, int(base_resolution * quality_factor))
     intensity = max(0.1, derived.intensity)
     multiplier = profile
+    tier = tier_solver(quality)
     turbulence_base = multiplier.turbulence if multiplier else (0.12 + 0.25 * intensity)
     return SimulationConfig(
         domain_resolution=domain_resolution,
-        noise_upres=max(1, min(8, int(noise))),
+        # Draft skips the noise pass entirely: it doubles disk and bake time and
+        # adds only fine detail, which Draft is not for.
+        noise_upres=max(1, min(8, int(noise))) if tier["noise"] else 1,
         voxel_size_m=max(derived.characteristic_radius_m / domain_resolution, 1e-5),
         characteristic_velocity_mps=max(0.1, float(derived.characteristic_velocity_mps)),
         time_scale_multiplier=1.0,
@@ -90,4 +121,9 @@ def build_simulation_config(
         # a ~2 m domain); scale up only when the characteristic speed is higher.
         burst_normal_velocity=max(0.5, float(multiplier.burst_normal_velocity if multiplier else 4.5) * max(1.0, derived.characteristic_velocity_mps)),
         burst_random_velocity=max(0.0, float(multiplier.burst_random_velocity if multiplier else 4.5) * max(1.0, derived.characteristic_velocity_mps)),
+        timesteps_min=tier["timesteps_min"],
+        timesteps_max=tier["timesteps_max"],
+        adapt_margin=tier["adapt_margin"],
+        adapt_threshold=tier["adapt_threshold"],
+        additional_res=tier["additional_res"],
     )

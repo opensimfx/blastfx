@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (branch `realism-and-bake-speed`)
+
+Realism and bake-time work. Plan: Phase 0 measure, Phase 1 bugs and speed, then shading, then nuclear.
+
+- Fix: burst particles never received the profile's burst speed. `burst_normal_velocity` and
+  `burst_random_velocity` were computed but not applied, so every blast left at Blender's default
+  particle speed. They now set `normal_factor` and `factor_random`. All profiles were look-tuned
+  without this, so expect to retune them.
+- Fix: the lower-cap flip was applied to both burst caps; it now applies to the lower cap only.
+- Fix: the ground collider added the blast's height twice (`ground_top_z` is already a world Z),
+  misplacing it for any blast above Z=0.
+- Bake cost is now set per quality tier in one table (`TIER_SOLVER` in
+  `simulation/physical_config.py`): Draft skips the noise pass and uses Blender's default-like
+  adaptive-domain and timestep settings; Final keeps full fidelity. Values are starting points
+  until timed.
+- New: bake metrics. Each worker bake writes `.blastfx_metrics.json` into the cache (wall time,
+  peak memory, cache bytes, per-phase span, solver settings), outside `job/` so recovery keeps it.
+- New: `tools/bake_benchmark.py` times a bake for a preset and tier in desktop Blender.
+
 ## 0.2.0-beta2 (2026-10-19)
 
 Nuclear support on top of the beta1 rework.

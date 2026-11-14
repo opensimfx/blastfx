@@ -81,3 +81,32 @@ def test_burst_count_scales_with_quality_to_hero_band():
     assert final.burst_count == large.burst_count * 4
     # Hero quality stays inside the researched 8-10k band.
     assert 8000 <= final.burst_count <= 10000
+
+
+def _physical():
+    return derive_physics(
+        PhysicalConfig(scale_m=10.0, reference_energy=1.0, intensity=1.0, duration_s=5.0)
+    )
+
+
+def test_draft_has_no_noise_pass_but_final_keeps_it():
+    draft = build_simulation_config(_physical(), "DRAFT", 128, 2, 7)
+    preview = build_simulation_config(_physical(), "PREVIEW", 128, 2, 7)
+    final = build_simulation_config(_physical(), "FINAL", 128, 2, 7)
+    assert draft.noise_upres == 1
+    assert preview.noise_upres == 2 and final.noise_upres == 2
+
+
+def test_solver_cost_falls_with_lower_tier_and_never_changes_physics():
+    draft = build_simulation_config(_physical(), "DRAFT", 128, 2, 7)
+    final = build_simulation_config(_physical(), "FINAL", 128, 2, 7)
+    assert draft.adapt_margin < final.adapt_margin
+    assert draft.additional_res <= final.additional_res
+    assert draft.timesteps_max <= final.timesteps_max
+    assert 1 <= draft.timesteps_min <= draft.timesteps_max
+    assert draft.characteristic_velocity_mps == final.characteristic_velocity_mps
+    assert draft.burst_normal_velocity == final.burst_normal_velocity
+
+
+def test_unknown_tier_falls_back_to_preview_settings():
+    assert _MODULE.tier_solver("nope") == _MODULE.TIER_SOLVER["PREVIEW"]
