@@ -33,7 +33,7 @@ for key in [
 ]:
     del sys.modules[key]
 
-sys.path.insert(0, "/Users/arsh/Developer/Projects/blastfx")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import bpy  # noqa: E402
 from blastfx.addon.registration import register, unregister  # noqa: E402
@@ -151,12 +151,14 @@ def _expected(scene, *, scale=1.0, duration=8.0, speed=1.0, quality="DRAFT",
         ambient=AmbientConditions(gravity=gravity_magnitude(scene.gravity)),
     ))
     profile = profile_for(explosion_type)
-    numerical = build_simulation_config(physical, quality, 0, 2, 100,
-                                        1.0, 1.0, 1.0, profile)
     timeline_s = physical.characteristic_time_s / max(speed, 0.05)
-    envelope = build_domain_envelope(
-        physical, numerical, gravity_magnitude(scene.gravity), timeline_s, profile
+    numerical = build_simulation_config(
+        physical, quality, 0, 2, 100, 1.0, 1.0, 1.0, profile,
+        timeline_duration_s=timeline_s,
+        fps=scene.render.fps / scene.render.fps_base,
+        playback_speed=max(speed, 0.05),
     )
+    envelope = build_domain_envelope(physical, profile)
     return physical, numerical, timeline_s, envelope
 
 

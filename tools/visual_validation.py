@@ -505,10 +505,9 @@ def run_one(preset_id: str) -> dict:
     )
     props = scene.blastfx
     if preset_id == "medium" and case_name and not overrides:
+        # (source_duration was removed with the Froude profile model.)
         rate = float(__import__("os").environ["BLASTFX_BURNING_RATE"])
-        duration = float(__import__("os").environ["BLASTFX_SOURCE_DURATION"])
-        PROFILES["FUEL"] = replace(PROFILES["FUEL"], burning_rate=rate,
-                                    source_duration=duration)
+        PROFILES["FUEL"] = replace(PROFILES["FUEL"], burning_rate=rate)
     apply_preset(props, preset_id)
     if layer_mode in {"fireball", "ground_surge", "shockwave", "smoke"}:
         props.use_fireball = layer_mode == "fireball"

@@ -39,11 +39,13 @@ class BLASTFX_Props(PropertyGroup):
     )
 
     scale: FloatProperty(
-        name="Scale",
-        default=1.0,
+        name="Fireball Size",
+        default=10.0,
         min=0.01,
         max=1000.0,
-        soft_max=20.0,
+        soft_max=200.0,
+        subtype="DISTANCE",
+        description="Fireball diameter in metres. Size sets how fast the blast moves (Froude scaling): bigger blasts rise and roll slower, as real ones do",
     )
 
     intensity: FloatProperty(
@@ -54,10 +56,11 @@ class BLASTFX_Props(PropertyGroup):
     )
 
     speed: FloatProperty(
-        name="Speed",
+        name="Playback Speed",
         default=1.0,
         min=0.05,
         max=10.0,
+        description="Shot speed relative to real time: 1 = real time, 0.5 = 2x slow motion (how practical explosions are filmed). Changes frame count, not the explosion",
     )
 
     start_frame: IntProperty(
@@ -69,9 +72,9 @@ class BLASTFX_Props(PropertyGroup):
     duration: FloatProperty(
         name="Duration",
         default=8.0,
-        min=0.1,
+        min=0.0,
         max=120.0,
-        description="Physical event duration in seconds; converted to Blender frames using scene FPS",
+        description="Real event time the shot covers, in seconds (before slow motion); converted to frames using scene FPS and playback speed. 0 = automatic: the explosion type's natural length at this size",
     )
 
     reference_energy: FloatProperty(
@@ -108,6 +111,7 @@ class BLASTFX_Props(PropertyGroup):
         default=0,
         min=0,
         max=2048,
+        description="0 = automatic: resolution follows the fireball size so detail per fireball stays constant per quality tier",
     )
 
     noise_upres: IntProperty(

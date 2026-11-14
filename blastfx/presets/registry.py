@@ -19,55 +19,60 @@ PRESETS = {}
 
 
 def _builtin_presets() -> Dict[str, Preset]:
+    """Factory presets at real-world sizes.
+
+    ``scale`` is the fireball diameter in metres, ``duration`` the real event
+    time the shot covers and ``speed`` the playback speed (0.5 = 2x slow
+    motion, as practical explosions are shot at high frame rates). Timing
+    follows Froude scaling from the size (core.froude), so shot lengths sit
+    near the profile's ``event_T``. Resolution is not pinned: it derives
+    from the size per quality tier (sim_config.VOXELS_PER_RADIUS).
+    """
     return {
         "small": Preset(
             id="small",
             label="Small Blast",
-            description="Small conventional explosion.",
+            description="Charge-scale ground blast, 4 m fireball, 2x slow motion.",
             explosion_type="GROUND",
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 5.0},
+            defaults={"scale": 4.0, "intensity": 1.0, "speed": 0.5, "duration": 3.5},
             components={"fireball": True, "stem": False, "dust": False, "shockwave": True, "flash": True},
-            simulation={"resolution": 128, "noise": 1},
+            simulation={"noise": 1},
         ),
         "medium": Preset(
             id="medium",
             label="Fuel / Vehicle Explosion",
-            description="Medium ground explosion with base surge.",
+            description="Vehicle fuel explosion, 10 m fireball with base surge.",
             explosion_type="FUEL",
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 8.0},
+            defaults={"scale": 10.0, "intensity": 1.0, "speed": 0.75, "duration": 6.0},
             components={"fireball": True, "stem": False, "dust": True, "shockwave": True, "flash": True},
-            simulation={"resolution": 220, "noise": 2},
+            simulation={"noise": 2},
         ),
         "large": Preset(
             id="large",
             label="Medium Ground Blast",
-            description="Ground blast using the medium explosion profile.",
+            description="20 m fuel-rich ground blast with a rising column.",
             explosion_type="FUEL",
-            # 8.5 s ≈ 204 frames: stays inside the researched 100-200 frame
-            # cache band (Iridesium); the old 14 s tail was dissolving haze.
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 8.5},
+            defaults={"scale": 20.0, "intensity": 1.0, "speed": 1.0, "duration": 9.0},
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True},
-            simulation={"resolution": 256, "noise": 2},
+            simulation={"noise": 2},
         ),
         "large_ground": Preset(
             id="large_ground",
             label="Large Ground Blast",
-            description="Large conventional blast with rising column.",
+            description="40 m conventional blast with rising column and ground surge.",
             explosion_type="LARGE",
-            # 9.5 s ≈ 228 frames: scaled against the same 100-200 frame band
-            # (24 s died bake-jobs with frames of pure haze after the fire).
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 9.5},
+            defaults={"scale": 40.0, "intensity": 1.0, "speed": 1.0, "duration": 10.0},
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True},
-            simulation={"resolution": 256, "noise": 2},
+            simulation={"noise": 2},
         ),
         "heavy": Preset(
             id="heavy",
             label="Heavy Ground Burst",
-            description="Massive ground burst: long-burning fireball, heavy column, dust surge, debris.",
+            description="80 m massive ground burst: long-burning fireball, heavy column, dust surge, debris.",
             explosion_type="HEAVY",
-            defaults={"scale": 1.0, "intensity": 1.0, "speed": 1.0, "duration": 16.0},
+            defaults={"scale": 80.0, "intensity": 1.0, "speed": 1.0, "duration": 12.0},
             components={"fireball": True, "stem": True, "dust": True, "shockwave": True, "flash": True, "debris": True},
-            simulation={"resolution": 256, "noise": 2},
+            simulation={"noise": 2},
         ),
         "nuclear_airburst": Preset(
             id="nuclear_airburst",
@@ -79,7 +84,7 @@ def _builtin_presets() -> Dict[str, Preset]:
                 "fireball": True, "stem": False, "dust": False, "shockwave": True,
                 "flash": True, "rapatronic": True,
             },
-            simulation={"resolution": 256, "noise": 2},
+            simulation={"noise": 2},
         ),
         "nuclear_groundburst": Preset(
             id="nuclear_groundburst",
@@ -91,7 +96,7 @@ def _builtin_presets() -> Dict[str, Preset]:
                 "fireball": True, "stem": True, "dust": True, "shockwave": True,
                 "flash": True, "rapatronic": True, "debris": True,
             },
-            simulation={"resolution": 256, "noise": 2},
+            simulation={"noise": 2},
         ),
     }
 
@@ -121,6 +126,11 @@ def load_presets_from_directory(preset_dir: Optional[Path] = None):
                 components=data.get("components", {}),
                 simulation=data.get("simulation", {}),
             )
+            if preset.id in PRESETS:
+                # Factory presets win: a stale JSON copy (e.g. the old
+                # 24 s large_ground.json) must not silently replace them.
+                print(f"[BlastFX] Ignoring {json_file.name}: '{preset.id}' is a factory preset id")
+                continue
             PRESETS[preset.id] = preset
         except Exception as e:
             print(f"[BlastFX] Failed to load preset {json_file}: {e}")

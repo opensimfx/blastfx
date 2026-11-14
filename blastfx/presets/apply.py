@@ -41,6 +41,10 @@ def apply_preset(props, preset_id: str) -> None:
         if getattr(props, "quality", "") == "DRAFT":
             resolution = max(16, int(resolution * 0.5))
         props.resolution = resolution
+    else:
+        # No pinned resolution: clear any old override so the size-derived
+        # automatic resolution applies (0 = auto).
+        props.resolution = 0
 
     if "noise" in preset.simulation:
         props.noise_upres = preset.simulation["noise"]

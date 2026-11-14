@@ -6,8 +6,9 @@ def test_profiles_have_distinct_source_and_timing():
     fuel = profile_for("FUEL")
     ground = profile_for("LARGE")
 
-    assert len({p.source_radius for p in (small, fuel, ground)}) == 3
-    assert len({p.source_duration for p in (small, fuel, ground)}) == 3
+    assert len({p.burst_speed_U for p in (small, fuel, ground)}) == 2
+    assert len({p.event_T for p in (small, fuel, ground)}) == 3
+    assert len({p.envelope_top_R for p in (small, fuel, ground)}) == 3
 
 
 def test_profile_state_is_deterministic_and_complete():
@@ -15,7 +16,7 @@ def test_profile_state_is_deterministic_and_complete():
     second = profile_state(profile_for("LARGE"))
 
     assert first == second
-    assert {"source_radius", "burning_rate", "expansion_factor"} <= set(first)
+    assert {"source_radius", "burning_rate", "burst_speed_U", "envelope_top_R"} <= set(first)
 
 
 def test_shading_configs_are_deterministic_and_sane():
@@ -56,10 +57,11 @@ def test_nuclear_profile_is_a_long_ground_burst():
     assert profile.stem is True
     assert profile.burst_flip_lower is True
     assert profile.shockwave_radius_factor < profile_for("HEAVY").shockwave_radius_factor
-    emission, lifetime, active = profile.burst_timing(24.0)
-    assert (emission, lifetime, active) == (48, 80, 129)
-    # Overrides are fps-independent by design.
-    assert profile.burst_timing(60.0)[:2] == (48, 80)
+    # Old tuning at the real 15 kt size (48 / 80 frames at 24 fps, R ~ 86 m)
+    # is preserved by the Froude windows.
+    from blastfx.core.froude import time_unit
+    emission, lifetime, _active = profile.burst_frames(time_unit(86.3, 9.80665), 1.0, 24.0)
+    assert abs(emission - 48) <= 1 and abs(lifetime - 80) <= 1
 
 
 def test_nuclear_shading_used_for_nuclear_type():

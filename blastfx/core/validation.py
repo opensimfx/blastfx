@@ -27,8 +27,8 @@ def validate_props(props) -> ValidationResult:
     if props.scale <= 0:
         result.add_error("Scale must be greater than zero.")
 
-    if props.duration <= 0:
-        result.add_error("Duration must be greater than zero.")
+    if props.duration < 0:
+        result.add_error("Duration must not be negative (0 = automatic).")
 
     if props.speed <= 0:
         result.add_error("Speed must be greater than zero.")

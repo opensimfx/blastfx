@@ -13,8 +13,10 @@ def animate_shockwave(obj, start_frame, end_frame, config, max_radius_factor=Non
     duration_s = config.get("timeline_duration_s", physical.characteristic_time_s)
     fps = config.get("_fps", 24.0)
     profile = config.get("profile")
-    delay = max(0.0, min(0.9, float(getattr(profile, "shockwave_delay", 0.0))))
     total_frames = max(1.0, duration_s * fps)
+    # Same kick-off frame as the shock-driven dust flow.
+    from ..simulation.shockwave import shock_start_frame
+    delay = max(0.0, min(0.9, (shock_start_frame(config) - start_frame) / total_frames))
     rise_start = start_frame + total_frames * delay
     end_fraction = max(
         delay + 0.01,
