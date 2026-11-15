@@ -1,7 +1,7 @@
 """Froude similarity: make a Mantaflow gas blast behave correctly at any size.
 
 Mantaflow's gas solver is not scale-correct. Measured in Blender 5.2.3
-(docs/REALISM_PLAN.md, section 1.1):
+(docs/VALIDATION.md, section 1.1):
 
 * Buoyancy coefficients are divided by the domain size in metres
   (``smoke_script.h``), so buoyant rise in metres collapses past a ~4 m

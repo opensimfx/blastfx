@@ -1,4 +1,4 @@
-# BlastFX Architecture
+# System Design
 
 ## 1. System boundary
 

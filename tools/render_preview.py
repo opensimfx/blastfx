@@ -1,7 +1,10 @@
 """Render a BlastFX preset to a PNG in desktop Blender.
 
   /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-      --python tools/render_preview.py -- <preset_id> <out.png> [samples]
+      --python tools/render_preview.py -- <preset_id> <out.png> [samples] [quality] [moment]
+
+quality: DRAFT (default), PREVIEW or FINAL. moment: where in the shot to render,
+0-1 of the baked frame range (default 0.5).
 
 Presets: small, medium, large, large_ground, nuclear_airburst, nuclear_groundburst
 """
@@ -53,7 +56,9 @@ def sky_world():
     sky.sky_type = "MULTIPLE_SCATTERING"
     sky.sun_elevation = 0.35
     sky.sun_rotation = 2.2
-    bg.inputs[0].default_value = (0.0, 0.0, 0.0, 1.0)  # Black world, light from sun only
+    # A dim daylight sky: enough to read the smoke's shape, the sun does the lighting.
+    tree.links.new(sky.outputs[0], bg.inputs[0])
+    bg.inputs[1].default_value = 0.3
     tree.links.new(bg.outputs[0], out.inputs[0])
 
 
@@ -82,27 +87,25 @@ def ground(z, size):
     return obj
 
 
-def camera_to(obj, elevation=0.30, distance_factor=1.5):
-    """Frame the camera on the evaluated bbox of `obj` from a three-quarter view."""
-    dg = bpy.context.evaluated_depsgraph_get()
-    ev = obj.evaluated_get(dg)
-    mesh = ev.to_mesh()
-    co = np.empty(len(mesh.vertices) * 3)
-    mesh.vertices.foreach_get("co", co)
-    ev.to_mesh_clear()
-    co = co.reshape(-1, 3)
-    lo, hi = co.min(axis=0), co.max(axis=0)
-    center = (lo + hi) / 2
-    size = float(np.linalg.norm(hi - lo))
+def camera_for_blast(controller, radius):
+    """Three-quarter view framed in fireball radii, so every size reads the same.
+
+    15 R away at 35 mm, aimed 2.6 R up: the fireball, the column and a nuclear
+    cap up to ~7 R all fit. (Framing on the domain put the camera inside it:
+    the evaluated fluid domain is only the active smoke box.)
+    """
+    origin = Vector(controller.location)
     data = bpy.data.cameras.new("BlastFX Camera")
+    data.lens = 35
+    data.clip_start = radius * 0.05
+    data.clip_end = radius * 2000
     cam = bpy.data.objects.new("BlastFX Camera", data)
     bpy.context.scene.collection.objects.link(cam)
-    d = size * distance_factor
-    cam.location = center + np.array([-d * 0.6, -d * 0.8, d * elevation])
-    direction = center - cam.location
-    cam.rotation_euler = Vector(direction).to_track_quat("-Z", "Y").to_euler()
+    cam.location = origin + Vector((-9 * radius, -12 * radius, 2.2 * radius))
+    target = origin + Vector((0.0, 0.0, 2.6 * radius))
+    cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = cam
-    return cam, size
+    return cam
 
 
 def hide_helpers(uid):
@@ -115,8 +118,10 @@ def hide_helpers(uid):
 
 def main(argv):
     preset_id = argv[0] if argv else "medium"
-    out = Path(argv[1]) if len(argv) > 1 else ROOT / "docs" / "previews" / f"{preset_id}.png"
+    out = Path(argv[1]) if len(argv) > 1 else ROOT / "docs" / "img" / f"{preset_id}.png"
     samples = int(argv[2]) if len(argv) > 2 else 48
+    quality = argv[3].upper() if len(argv) > 3 else "DRAFT"
+    moment = float(argv[4]) if len(argv) > 4 else 0.5
 
     blastfx = load_package()
     blastfx.register()
@@ -137,8 +142,7 @@ def main(argv):
 
     props = scene.blastfx
     apply_preset(props, preset_id)
-    props.quality = "DRAFT"
-    props.resolution = 64
+    props.quality = quality
     props.use_camera_fx = True
     props.use_exposure = False
     props.use_heat_distortion = False
@@ -167,18 +171,20 @@ def main(argv):
     if status.get("state") != "COMPLETED":
         raise SystemExit(f"Bake did not complete: {status}")
 
-    # Render at mid-frame
-    scene.frame_set(scene.frame_end // 2)
-
     # Find the domain for camera framing
     collection = next(c for c in controller.users_collection if c.name.startswith("Blast_"))
     domain_obj = next(obj for obj in collection.objects if obj.get("blastfx_role") == "domain")
+
+    # Render at the chosen moment of the baked range.
+    settings = domain_obj.modifiers["BlastFX Fluid"].domain_settings
+    first, last = settings.cache_frame_start, settings.cache_frame_end
+    scene.frame_set(int(round(first + moment * (last - first))))
 
     hide_helpers(uid)
     sky_world()
     sun_lamp()
     ground(0.0, 4000.0)
-    camera_to(domain_obj, elevation=0.35, distance_factor=1.8)
+    camera_for_blast(controller, float(controller["blastfx_characteristic_radius_m"]))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()

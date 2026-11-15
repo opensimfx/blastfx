@@ -1,4 +1,6 @@
-# Project History
+# Roadmap
+
+Milestone history first, then the open roadmap.
 
 ## Original prototype
 
@@ -150,7 +152,7 @@ directly through the conventional pipeline.
 - [x] example .blend scenes (`tools/make_examples.py` →
       `examples/test_{small,medium,large,large_event}.blend`: deterministic
       seeds, framed camera, neutral light, no bake; `examples/README.md`)
-- [x] release packaging (`tools/package.py`)
+- [x] release packaging (`tools/build_extension.py`, formerly `tools/package.py`)
 
 ### Milestone 7 — Optional
 
@@ -170,8 +172,8 @@ CrossMind Ch. 7). Built in phases 0-5, each verified by headless probes and
 render evidence under `examples/burst_probe/`:
 
 - [x] presets honor JSON resolution keys; render settings applied in create
-      path; glare/exposure/camera FX default ON (bake turntables under
-      `examples/before/` as evidence of the "before" look)
+      path; glare/exposure/camera FX default ON (bake turntables kept locally
+      as evidence of the "before" look)
 - [x] particle-driven burst replaces mesh-inflow fireball (`simulation/burst.py`;
       `simulation/fireball.py` deleted): equator-split caps (upper/lower),
       one particle system per cap feeding a PARTICLES flow, burst window 2-5

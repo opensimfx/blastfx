@@ -1,4 +1,4 @@
-# Development Guide
+# Development and Testing
 
 ## Requirements
 
@@ -15,8 +15,7 @@ Do not use the system Python to import `bpy`.
 
 `Edit > Preferences > Add-ons > Install...`
 
-Select the zip produced by `tools/package.py` (`blastfx_v1.zip` in the
-repo root).
+Select the zip produced by `tools/build_extension.py` (`dist/blastfx-<version>.zip`).
 
 ### Option B: Development symlink
 

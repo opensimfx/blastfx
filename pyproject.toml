@@ -1,0 +1,10 @@
+[project]
+name = "blastfx"
+version = "0.2.0"
+description = "Procedural cinematic explosions for Blender"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

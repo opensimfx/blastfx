@@ -1,4 +1,4 @@
-# BlastFX Physics
+# Physics
 
 ## Objective
 

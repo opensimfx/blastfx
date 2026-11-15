@@ -1,6 +1,6 @@
 """Physically informed, deterministic VFX profiles for each explosion type."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -129,7 +129,7 @@ class ExplosionProfile:
     ending in ``_T`` are multiples of ``T = sqrt(R/g)``; lengths ending in
     ``_R`` are multiples of the fireball radius R. ``core.froude`` turns them
     into solver values, so a profile reads the same at any size and only
-    its real-world timing changes (see docs/REALISM_PLAN.md).
+    its real-world timing changes (see docs/VALIDATION.md).
 
     Combustion values (fuel, burning rate, buoyancy coefficients, ...) are
     Mantaflow settings of the reference-sized model and stay unscaled.
@@ -260,7 +260,9 @@ PROFILES = {
         burst_count=1800, burst_speed_U=3.0, burst_random_U=1.5,
         burst_emission_T=0.3, burst_lifetime_T=0.3,
         stem_speed_U=0.25, stem_feed_T=2.0,
-        camera_distance_factor=2.2,
+        # Camera 18 R out (was 2.2 -> 13 R: by the end the column left the top of
+        # the frame and the smoke filled the image).
+        camera_distance_factor=3.0,
     ),
     # Large conventional ground blast: hot source, buoyant column, surge.
     "LARGE": ExplosionProfile(
@@ -298,36 +300,55 @@ PROFILES = {
         shock_delay_T=0.04, shock_spread_U=1.8, shock_feed_T=0.5,
         shockwave_radius_factor=8.0, camera_distance_factor=3.0,
     ),
-    # Trinity-style burst. Burst speed comes from the old tuning at its real
-    # size (14x r/t at R = 86 m = 2.6 U, a hand-made Froude scaling); windows
-    # likewise (48 / 80 frames = 0.67 T / 1.12 T). The old 2.2 U stem jet is
-    # cut to 0.5 U now that buoyancy works (jets band, see stem_speed_U). Shock stays near the 5-psi relation (~3.7x R).
+    # Trinity-style burst. Preview review (2026-11-15, 15 kt, R = 86 m):
+    # - The burst used to fly at 2.6 U for 1.1 T, so fuel reached ~3 R and the
+    #   fireball rendered as a spiky urchin three times too big. Now 1.2 U for
+    #   0.5 T with little random spread: a smooth dome of about R.
+    # - Fuel 2.5 burning at 0.5 (was 3.5 at 0.22, white-hot past 2 T): orange
+    #   by 1 T, glowing pockets at 2 T, out by ~2.4 T.
+    # - The stem waits 1 T and pushes gently (0.25 U), so the cloud rises as a
+    #   plume with a cap instead of a jet punching through the fireball.
+    # - Domain: the ground burst needs no room below ground, so 1 R moves from
+    #   the bottom to the top (same 7.5 R height). With the top at 7 R the cap
+    #   stayed clear of the closed top and rolled into a rounded mushroom; at
+    #   6 R it flattened against it by 5 T. The air burst keeps the old
+    #   layout (PRESET_PROFILE_OVERRIDES).
+    # Shock stays near the 5-psi relation (~3.7x R).
     "NUCLEAR": ExplosionProfile(
-        # Preview review: fuel 5.0 kept the core white-hot past 2 T (6 s).
-        source_radius=1.0, fuel_amount=3.5, temperature=1.5, density=1.6,
-        burning_rate=0.22, flame_vorticity=0.35, flame_smoke=3.0,
+        source_radius=1.0, fuel_amount=2.5, temperature=1.5, density=1.6,
+        burning_rate=0.5, flame_vorticity=0.35, flame_smoke=3.0,
         buoyancy_density=1.4, buoyancy_heat=3.4, turbulence=1.0,
-        noise_strength=1.2, noise_scale=2, flame_ignition=2.2, flow_heat=1.3,
+        noise_strength=1.2, noise_scale=2, flame_ignition=2.2, flow_heat=3.0,
         stem=True, ground_surge=True, burst_flip_lower=True,
-        # Slimmer domain (was 5.4 R lateral, 932 m): the time scale clamps at 10
-        # beyond ~400 m and buoyancy then falls short (30 % before, ~8 % now),
-        # which left the cloud squat with no rise. Less random burst spread
-        # tames the spikes.
-        event_T=5.4, envelope_lateral_R=3.5, envelope_top_R=6.0, envelope_bottom_R=1.5, ceiling=True,
-        burst_count=4000, burst_speed_U=2.6, burst_random_U=1.0,
-        burst_emission_T=0.67, burst_lifetime_T=1.12,
-        stem_speed_U=0.5, stem_feed_T=3.2,
+        # Lateral 3.5 R keeps the time-scale clamp (10) shortfall small.
+        event_T=5.4, envelope_lateral_R=3.5, envelope_top_R=7.0, envelope_bottom_R=0.5, ceiling=True,
+        burst_count=4000, burst_speed_U=1.2, burst_random_U=0.3,
+        burst_emission_T=0.3, burst_lifetime_T=0.5,
+        stem_speed_U=0.25, stem_feed_T=3.2, stem_delay_T=1.0,
         dust_spread_U=0.4, dust_lift_U=0.02, dust_feed_T=1.6, dust_ring_T=0.67,
         dust_density_factor=0.9, dust_velocity_random=0.25, dust_temperature=-2.5,
         shock_delay_T=0.1, shock_spread_U=1.2, shock_feed_T=0.5,
-        shockwave_radius_factor=4.0, camera_distance_factor=5.5,
+        # Camera 16 R out (was 5.5 -> 33 R: the fireball was a speck and the cap
+        # filled a third of the frame); the cap tops out near 6 R.
+        shockwave_radius_factor=4.0, camera_distance_factor=2.7,
     ),
 }
 
 
-def profile_for(explosion_type: str) -> ExplosionProfile:
-    """Return the stable profile for a Blender explosion type."""
-    return PROFILES.get(explosion_type, PROFILES["FUEL"])
+# Per-preset adjustments to a type's profile. The air burst detonates at the
+# 3D cursor, high above the ground, so it needs domain room below the burst
+# that the ground burst does not, and its lower half bursts downward (the
+# ground burst's upward flip left a seam across the fireball's middle).
+PRESET_PROFILE_OVERRIDES = {
+    "nuclear_airburst": {"envelope_bottom_R": 1.5, "envelope_top_R": 6.0, "burst_flip_lower": False},
+}
+
+
+def profile_for(explosion_type: str, preset_id: str = "") -> ExplosionProfile:
+    """Return the stable profile for a Blender explosion type (and preset)."""
+    profile = PROFILES.get(explosion_type, PROFILES["FUEL"])
+    overrides = PRESET_PROFILE_OVERRIDES.get(preset_id or "")
+    return replace(profile, **overrides) if overrides else profile
 
 
 def profile_state(profile: ExplosionProfile) -> dict:

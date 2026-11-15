@@ -31,7 +31,7 @@ for key in [
 ]:
     del sys.modules[key]
 
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
@@ -43,10 +43,10 @@ from blastfx.render.settings import configure_render_settings, configure_world, 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = REPO_ROOT / "examples"
-# Hero-frame dir is env-overridable so "after" turntables can render beside
-# (never over) the committed examples/before evidence.
+# Hero frames (regression turntables) go to a local, unpublished folder;
+# override with BLASTFX_HERO_DIR.
 BEFORE_DIR = Path(os.environ.get(
-    "BLASTFX_HERO_DIR", str(EXAMPLES / "before")
+    "BLASTFX_HERO_DIR", str(REPO_ROOT / "private" / "examples" / "before")
 ))
 
 # Hero frames rendered for visual before/after regression: offsets relative

@@ -3,6 +3,7 @@ from ..core.domain_envelope import longest_side
 from ..utils.animation import action_fcurves
 from ..utils.naming import component_name
 from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
+from .ground import ground_top_z
 
 
 def shock_start_frame(config) -> int:
@@ -22,8 +23,12 @@ def build_shockwave(context, collection, controller, config):
     name = component_name(controller["blastfx_id"], "Shockwave")
     # An annulus around the fireball: the shock raises dust from the ground
     # it sweeps. A filled cylinder stamped a dark pancake under the fireball.
+    # It sits on the ground, not at the burst: an air burst's ring at burst
+    # height rendered as a glowing disc around the fireball's middle.
+    location = controller.location.copy()
+    location.z = ground_top_z(config, controller)
     obj = primitive_flow(
-        collection, name, controller.location, "annulus",
+        collection, name, location, "annulus",
         inner_radius=radius * 1.0, outer_radius=radius * 2.2,
         depth=max(radius * 0.25, numerical.voxel_size_m * 2.0), segments=96,
     )

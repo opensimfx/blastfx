@@ -1,11 +1,16 @@
-# Realism, Cinematic Look and Bake Speed — Findings and Plan
+# Validation
 
-Status: research + diagnosis, 2026-11-14, branch `realism-and-bake-speed`.
+What was measured while making BlastFX realistic and fast to bake: the findings, the plan they led to and its
+status. (Formerly `REALISM_PLAN.md`.)
+
+## Realism, cinematic look and bake speed: findings and plan
+
+Status: research and diagnosis, 2026-11-14; the plan is complete except where marked.
 Every claim below is marked **[measured]** (headless Blender 5.2.3 bake or API probe run for this
 document), **[source]** (Blender source / manual), **[code]** (read in this repo), or
 **[reference]** (external research; treat as a starting point, not truth).
 
-Experiment scripts live outside the repo; the key one is reproduced in Appendix A.
+The key experiment is reproduced in Appendix A.
 
 ---
 
@@ -170,7 +175,9 @@ deferred unless re-baking noise becomes a frequent workflow.
 Open items:
 
 - Profiles need retuning by eye at Preview/Final; values were set during A-C at Draft.
-- Nuclear exceeds the time-scale limit (10): buoyancy ~30% short, warned in the UI.
+- Nuclear exceeds the time-scale limit (10): buoyancy ~9% short (647 m domain), warned in the UI.
+  The Nuclear look (spiky oversized fireball, white past 2 T, flat cap) was retuned on
+  2026-11-15; see the CHANGELOG.
 - Faint stripes next to the column emitter at Draft (cone only 2-3 cells wide); gone at
   Preview.
 - Under AgX the fire is somewhat pastel; Filmic shows the fuller colour.
@@ -187,17 +194,4 @@ Metric: density-weighted centroid height as a fraction of domain height, read fr
 `domain_settings.density_grid`. The Froude run sets `time_scale = sqrt(S/4)` and samples frames
 scaled by the same factor.
 
-## Sources
-
-- Blender source: `intern/mantaflow/intern/strings/smoke_script.h`, `fluid_script.h`,
-  `source/blender/blenkernel/intern/fluid.cc` (main branch, fetched 2026-11-14)
-- Blender manual: fluid domain Settings, Cache, Guides, Noise
-- Fireball correlations: https://www.aidic.it/cet/20/82/036.pdf ,
-  https://www.icheme.org/media/25181/the-assessment-of-major-hazards-icheme-symposium-series-71-1982-15-lihou.pdf
-- Miniature/high-speed practice: https://cinematography.net/edited-pages/Earth_Explosion_-_fps.htm
-- Heat distortion via refraction shells: https://www.blendernation.com/2018/09/23/create-realistic-heat-distortions-in-blender/ ,
-  https://blenderartists.org/t/fake-simulated-heat-distortion-in-blender/1282239
-- Free CC0 VDBs: https://jangafx.com/software/embergen/download/free-vdb-animations
-- Blender 5.0 volume grid nodes: https://developer.blender.org/docs/release_notes/5.0/geometry_nodes/
-- Fire shading practice: https://sites.google.com/view/vdblabuserguide/user-interface/main-modules/shading ,
-  https://www.blendernation.com/2024/03/29/two-tips-for-better-explosions-in-blender-initial-velocity-and-turbulence-quicktip-ft-khaos-add-on/
+Sources: [REFERENCES.md](REFERENCES.md).

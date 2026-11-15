@@ -80,7 +80,7 @@ def plan_blast(props, scene) -> BlastPlan:
     gravity = gravity_magnitude(scene.gravity)
     fps = scene.render.fps / scene.render.fps_base
     scale_m = effective_scale_m(props)
-    profile = profile_for(props.explosion_type)
+    profile = profile_for(props.explosion_type, getattr(props, "preset_id", ""))
     duration = float(props.duration)
     if duration <= 0.0:
         # Automatic: the profile's natural event length at this size, so a

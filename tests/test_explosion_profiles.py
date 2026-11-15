@@ -59,11 +59,29 @@ def test_nuclear_profile_is_a_long_ground_burst():
     assert profile.stem is True
     assert profile.burst_flip_lower is True
     assert profile.shockwave_radius_factor < profile_for("HEAVY").shockwave_radius_factor
-    # Old tuning at the real 15 kt size (48 / 80 frames at 24 fps, R ~ 86 m)
-    # is preserved by the Froude windows.
-    from blastfx.core.froude import time_unit
-    emission, lifetime, _active = profile.burst_frames(time_unit(86.3, 9.80665), 1.0, 24.0)
-    assert abs(emission - 48) <= 1 and abs(lifetime - 80) <= 1
+    # Compact, smooth fireball: the burst's fuel reach (speed x lifetime)
+    # stays within about one radius (2.6 U for 1.1 T spread it to ~3 R and
+    # rendered a spiky urchin), and it burns out well before the shot ends.
+    assert profile.burst_speed_U * profile.burst_lifetime_T <= 1.0
+    assert profile.burst_random_U <= 0.5
+    # The cap needs headroom under the closed top; the ground burst needs no
+    # room below ground.
+    assert profile.ceiling is True
+    assert profile.envelope_top_R >= 7.0
+    assert profile.envelope_bottom_R <= 0.5
+
+
+def test_nuclear_airburst_keeps_room_below_the_burst():
+    ground = profile_for("NUCLEAR", "nuclear_groundburst")
+    air = profile_for("NUCLEAR", "nuclear_airburst")
+    assert ground == profile_for("NUCLEAR")
+    assert air.envelope_bottom_R >= 1.5
+    # A full sphere: the lower half bursts downward, not up like a ground burst.
+    assert air.burst_flip_lower is False
+    # Same domain height, so the solver scaling (and its shortfall) match.
+    assert air.envelope_top_R + air.envelope_bottom_R == ground.envelope_top_R + ground.envelope_bottom_R
+    # Everything else is the shared nuclear profile.
+    assert air.burst_speed_U == ground.burst_speed_U and air.fuel_amount == ground.fuel_amount
 
 
 def test_nuclear_shading_used_for_nuclear_type():

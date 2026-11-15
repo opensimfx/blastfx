@@ -1,118 +1,121 @@
-# BlastFX
+<h1><img src=".github/logo.png" alt="BlastFX logo" width="64" height="64" align="absmiddle">&nbsp;BlastFX</h1>
 
 **Procedural cinematic explosions for Blender** — part of [OpenSimFX](https://github.com/opensimfx),
 alongside RainFX, FlowFX and AtmosFX.
 
-> BlastFX is a **visual simulation system**. It produces cinematic explosions; it is not an engineering model of real blasts, yields or damage.
+![Fuel explosion](docs/img/medium.png)
 
-![Small blast](docs/previews/small.png)
-![Medium blast](docs/previews/medium.png)
-![Large blast](docs/previews/large.png)
+| | |
+|---|---|
+| ![Large ground blast](docs/img/large_ground.png) | ![Nuclear ground burst](docs/img/nuclear_groundburst.png) |
 
-_Renders: headless Cycles, DRAFT quality (`tools/render_preview.py`). They are validation checks, not showpieces._
+_Renders: desktop Blender 5.2, Cycles, Preview quality, 64 samples (`tools/render_preview.py`). They are validation
+checks, not showpieces._
 
-BlastFX builds ground-blast scenes from a coherent physical configuration — SI units, FPS-independent timing, scale-aware domains — rather than hand-keyframed fire and smoke. One click creates a full blast stack: gas domain with a deterministic pre-bake envelope, fireball, rising column, ground dust, shockwave, debris, flash, camera shake, exposure impulse and heat haze. Bakes run in a background Blender worker so the UI stays responsive, and caches are content-addressed: nothing is re-baked unless the physical state actually changed.
+BlastFX builds an explosion from three physical settings: the fireball size, the playback speed and the shot
+length. One click creates the whole stack: a Mantaflow gas domain sized to the event, the fireball burst, a rising
+column, ground surge, shock-raised dust, debris, fire light, a sound-delayed camera shake, exposure and bloom, and
+heat distortion. The solver is scaled by Froude similarity, so a 4 m charge and a 170 m nuclear fireball both look
+right and only their real-world timing differs. Bakes run in a background Blender process, and caches are
+content-addressed: nothing re-bakes unless something that affects the simulation changed.
+
+> BlastFX is a **visual simulation system**. It produces cinematic explosions; it is not an engineering model of
+> real blasts, yields or damage.
 
 ## Features
 
-- **Profiles, not magic numbers** — deterministic `ExplosionProfile` data (source topology, combustion, buoyancy, turbulence, timing, camera framing) drives the sim; `large_ground` preset rides the LARGE profile.
-- **Physically timed secondary FX** — flash, shockwave geometry, camera impulse and dust derive their timing from the physical event timeline, not from independent keyframes.
-- **Background bake worker** — one non-blocking job at a time, atomic status, cancel-safe; incomplete generations are never reported as baked.
-- **Cache you can trust** — state-hash identity covers envelope, profile, seed, FPS, gravity and units; stale or lying caches are detected and invalidated on file load.
-- **Quality tiers** — Draft / Preview / Final change only numerical resolution, noise and solver quality, never the underlying event.
-- **Scene safety** — generated objects are tagged (`blastfx_role` / `blastfx_id` / `blastfx_component`) and every blast lives in its own removable collection.
+- **Scale-correct physics**: every blast runs as a reference-sized model with a Froude-scaled solver time, so
+  buoyancy, burst speed and burn rate hold at any size ([docs/PHYSICS.md](docs/PHYSICS.md)).
+- **Five explosion types, 7 presets**: charge, fuel/vehicle, large and heavy ground blasts, nuclear air and
+  ground bursts ([docs/PRESETS.md](docs/PRESETS.md)); save your own as JSON.
+- **Physically shaded fire and smoke**: emission follows Kirchhoff's law with a blackbody colour, and smoke
+  optical depth is normalised by the fireball size, so small blasts are not see-through and big ones not opaque.
+- **Cinematic layer**: fire light, camera shake delayed by the speed of sound, exposure and bloom, heat-distortion
+  shell and a refraction shock ring, all timed from the same event.
+- **Quality tiers**: Draft, Preview and Final change only resolution, noise and solver accuracy, never the event;
+  Final matches Draft within a few percent. Preview bakes about 2.5x faster than Final.
+- **Background bakes you can trust**: one worker at a time, cancel-safe, with progress and time remaining; the
+  cache identity covers every input, so stale caches are detected instead of shown.
 
 ## Install
 
-Requires Blender **5.2 LTS or newer** (Mantaflow gas with adaptive domain).
+Requires Blender **5.2 LTS or newer** (Mantaflow gas).
 
 ```bash
-python tools/package.py        # -> blastfx_v1.zip
+python tools/build_extension.py        # -> dist/blastfx-0.2.0.zip
 ```
 
-In Blender: *Edit > Preferences > Add-ons > Install…*, pick the zip. The panel appears in the 3D Viewport sidebar (**N**) under **BlastFX**.
-
-The repository ships ready-made example scenes under `examples/` (`test_small`, `test_medium`, `test_large`, `test_large_event`) — open one, press **Bake Simulation**, and render.
+In Blender: *Edit > Preferences > Get Extensions > (v) > Install from Disk...*, pick the zip. The panel appears in
+the 3D Viewport sidebar (**N**) under **BlastFX**.
 
 ## Quick start
 
-1. Open the **BlastFX** tab, pick an explosion type and preset (or a scale/duration directly).
-2. Create the blast at the 3D cursor.
-3. Tune artistic parameters (components, appearance, cinematic FX).
-4. Run a preview bake — inspect motion and silhouette.
-5. Run the final bake — full resolution.
-6. Render with Cycles.
+1. Open the **BlastFX** tab, pick a preset and press **Create Blast** (it starts at the 3D cursor).
+2. Open **Cache and Bake**, keep **Draft** and press **Bake Simulation**; scrub the timeline.
+3. Adjust Explosion, Components and Look, then **Rebuild Blast** with the controller selected.
+4. Bake at **Preview** to judge the look and **Final** for the shot, then render with Cycles.
+
+Full walkthrough: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
 ## Verification status (read this)
 
-Verified on **Blender 5.2 LTS**:
+Verified on **desktop Blender 5.2.3 LTS, macOS arm64**:
 
-- Core logic (profile/config/cache-identity) tested under plain Python via pytest — no `bpy` required.
-- Blender runtime smoke tests (`tools/blender_runtime_smoke_test.py`) exercise the full operator surface and API contracts.
-- Physics validation (`tools/physics_validation.py`) checks SI units, FPS conversion, scale handling.
-- Mantaflow calibration workflow documented in `docs/DEVELOPMENT.md` — one-factor sweeps, results recorded, no fake precision.
+- 72 pure-Python tests: Froude scaling, solver configuration, profiles, presets, burst timing, cache identity and
+  recovery, batch bake queue, domain envelope, ground placement.
+- Every preset goes through Create, Rebuild, Duplicate and Remove in Blender; every panel draws and references
+  only registered properties and operators.
+- Bakes and renders reviewed at Draft and Preview for every preset, and at Final for consistency with Draft
+  (flame and smoke within 4-7%); measurements are in [docs/VALIDATION.md](docs/VALIDATION.md).
+- The built zip passes Blender's extension validator and installs, enables and creates a blast in a clean profile.
 
-**Not verified** — treat as unknown:
+**Not verified** - treat as unknown:
 
-- Blender versions newer than 5.2 LTS (compatibility reports welcome).
-- Headless/CLI workflow (see `docs/HISTORY.md` Milestone 7).
-- Geometry Nodes debris, Asset Browser integration (planned).
+- Blender versions other than 5.2.3; Windows and Linux; GPU Cycles; EEVEE.
+- Final-quality bakes of every preset at their full size (they take hours on a laptop CPU).
+- Blasts larger than ~400 m: the solver's time-scale limit makes them rise a little slower than real (the panel
+  warns, the Nuclear presets are ~9% short).
+- Headless batch workflows outside the add-on's own background worker.
 
 ## Repository layout
 
 ```
-blastfx/                 the add-on (what gets zipped)
-  core/                  pure Python: profiles, config, cache identity, physics
-  ops/                   operators (create, bake, cancel, utilities)
-  ui/                    panels, properties, presets
-  services/              bake worker, cache, estimates, impulses
-  examples/              test_small, test_medium, test_large, test_large_event
-tools/                   package, validation, calibration, runtime smoke tests
-docs/                    ARCHITECTURE, PHYSICS, DEVELOPMENT, HISTORY
+blastfx/                 the add-on (this folder is what the extension zip contains)
+  core/                  pure Python, no bpy: physics, Froude scaling, profiles, blast plan, solver config, cache
+  simulation/            Mantaflow domain, burst particles, column, dust, shock ring, ground collider
+  materials/             volume shading (blackbody fire, smoke), rapatronic skin
+  animation/             cinematic layer: fire light, camera shake, exposure, heat distortion, shock ring
+  addon/  ui/            properties, operators, registration; sidebar panels
+  presets/  render/      factory presets; render settings
+  utils/                 naming, logging, Blender API compatibility
+docs/                    user guide, presets, physics, system design, development, validation, references, roadmap, UI style
 tests/                   pytest suites (pure Python, no bpy)
+tools/                   build_extension, render_preview, gen_preset_docs, validation and benchmarks
+presets/                 saved JSON presets (loaded on start)
+examples/                example scenes
 ```
-
-## Generate Previews
-
-```bash
-# Requires desktop Blender 5.2+ (not headless bpy wheel — Mantaflow needs the full build)
-# Usage: /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-#        --python tools/render_preview.py -- <preset> <output.png> [samples]
-
-/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-    --python tools/render_preview.py -- small docs/previews/small.png 48
-
-/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-    --python tools/render_preview.py -- medium docs/previews/medium.png 48
-
-/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-    --python tools/render_preview.py -- large docs/previews/large.png 48
-```
-
-Presets: `small`, `medium`, `large`, `large_ground`, `nuclear_airburst`, `nuclear_groundburst`
 
 ## Develop
 
 ```bash
-# Pure tests (no Blender)
-python -m pytest -q
-
-# Blender runtime checks (needs bpy 5.2)
-python tools/blender_runtime_smoke_test.py
-python tools/physics_validation.py
-
-# Build the extension zip
-python tools/package.py
+python -m pytest                                  # pure tests, no Blender
+BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
+$BLENDER -b --python tools/blender_runtime_smoke_test.py          # Mantaflow bake + render smoke test
+$BLENDER -b --python tools/physics_validation.py                  # physics wiring checks
+$BLENDER -b --factory-startup --python tools/render_preview.py -- medium docs/img/medium.png 64 PREVIEW 0.15
+python tools/gen_preset_docs.py                   # regenerate docs/PRESETS.md
+python tools/build_extension.py                   # dist/blastfx-<version>.zip
 ```
 
-See `docs/DEVELOPMENT.md` for the full dev loop, coding rules, test matrix, and Mantaflow calibration workflow.
+Mantaflow bakes need desktop Blender; the `bpy` wheel crashes inside the solver. See
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-[Architecture](docs/ARCHITECTURE.md) · [Physics](docs/PHYSICS.md) · [Development](docs/DEVELOPMENT.md) · [History & Roadmap](docs/HISTORY.md)
+[User guide](docs/USER_GUIDE.md) · [Presets](docs/PRESETS.md) · [Physics](docs/PHYSICS.md) ·
+[System design](docs/SYSTEM_DESIGN.md) · [Development](docs/DEVELOPMENT.md) · [Validation](docs/VALIDATION.md) ·
+[References](docs/REFERENCES.md) · [Roadmap](docs/ROADMAP.md) · [UI style](docs/UI_STYLE.md) · [Changelog](CHANGELOG.md)
 
 ## License
 
-GPL-3.0-or-later — see [`LICENSE`](LICENSE).
-
-This keeps the add-on compatible with Blender's own GPL codebase and with the Blender Extensions platform. Contributions you submit fall under the same license.
+GPL-3.0-or-later — see [LICENSE](LICENSE).

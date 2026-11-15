@@ -1,4 +1,4 @@
-"""Froude scaling: the conversions measured in Blender 5.2.3 (REALISM_PLAN 1.1)."""
+"""Froude scaling: the conversions measured in Blender 5.2.3 (docs/VALIDATION.md section 1.1)."""
 import math
 
 import pytest

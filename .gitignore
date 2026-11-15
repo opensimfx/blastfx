@@ -2,22 +2,33 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .venv/
+venv*/
 
-# macOS
+# OS and editors
 .DS_Store
+._*
+.idea/
+.vscode/
 
-# Blender
+# Blender backups
 *.blend1
 *.blend2
 
-# BlastFX generated output
+# Build output (release zips go on GitHub Releases)
 dist/
+
+# BlastFX runtime output
 blastfx_cache/
 blastfx_visual_validation/
 examples/burst_probe/
 waveletNoiseTile.bin
 
-# Local plan / agent artifacts
+# Local notes
 .opencode/
 BLENDER_EXPLOSION_RESEARCH.md
+
+# Local notes that are never published (research material, competitor analysis, dev leftovers)
+private/
