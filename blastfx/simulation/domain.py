@@ -75,7 +75,7 @@ def build_domain(context, collection, controller, config):
         use_fractions=True,
         fractions_distance=0.5,
         fractions_threshold=0.05,
-        cfl_condition=2.0,
+        cfl_condition=float(numerical.cfl_condition),
         additional_res=int(numerical.additional_res),
         use_noise=bool(numerical.noise_upres > 1),
         noise_scale=max(1, min(100, int(numerical.noise_upres))),
