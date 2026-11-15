@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Nothing yet.
+
+## 0.3.0-beta.1 (2026-11-16)
+
 ### Repository layout
 
 The four OpenSimFX add-ons now share one repository layout (see CONTRIBUTING.md, Repository conventions).
@@ -14,8 +18,8 @@ The four OpenSimFX add-ons now share one repository layout (see CONTRIBUTING.md,
 - `tools/package.py` -> `tools/build_extension.py`, which writes `dist/blastfx-<version>.zip` (was
   `blastfx_v<version>.zip`) and reads the version from the manifest.
 - `pytest.ini` -> `pyproject.toml`.
-- Development leftovers and research notes are no longer published: the 0.2.0 before/after turntables
-  (`examples/before`, `examples/after`, 10 MB) and internal notes moved to a local, ignored `private/` folder.
+- Development leftovers are no longer published: the 0.2.0 before/after turntables (`examples/before`,
+  `examples/after`, 10 MB) and working research notes.
 - README renders live in `docs/img/` (new Preview renders); `tools/render_preview.py` takes a quality and the
   moment of the shot to render.
 - Fix: `tools/render_preview.py` framed its camera on the evaluated fluid domain (only the active smoke box), so
