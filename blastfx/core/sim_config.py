@@ -46,6 +46,7 @@ class SimulationConfig:
     # Fraction of the Froude buoyancy the RNA limit (|beta| <= 5) dropped.
     buoyancy_shortfall: float = 0.0
     # Solver-cost knobs chosen per quality tier (see TIER_SOLVER).
+    cfl_condition: float = 2.0
     timesteps_min: int = 2
     timesteps_max: int = 8
     adapt_margin: int = 20
@@ -58,17 +59,19 @@ class SimulationConfig:
     use_adaptive_domain: bool = False
 
 
-# Solver cost per quality tier. Draft exists to judge motion quickly: no noise
-# pass, loose adaptive-domain margin, few substeps. Final keeps full fidelity.
-# Values start from Blender's own defaults (adapt_margin 4, additional_res 0,
-# timesteps 1-4); bake_benchmark timings decide whether they move. Tier never
-# changes the physical event, only how finely it is resolved.
+# Solver cost per quality tier. Tiers never change the physical event, only
+# how finely it is resolved. Measured on medium at Preview (46 frames):
+# 257 s as before; the noise pass alone was ~50 % of the cost and CFL 4
+# saved another ~20 %; without noise and at CFL 4 it took 104 s with the
+# same shape and timing (smoother billows, no fine soot detail). Draft and
+# Preview judge motion and shape, so they skip noise and use CFL 4; Final
+# keeps the noise pass and CFL 2 for full fidelity.
 TIER_SOLVER = {
-    "DRAFT": {"noise": False, "timesteps_min": 1, "timesteps_max": 4,
+    "DRAFT": {"noise": False, "cfl": 4.0, "timesteps_min": 1, "timesteps_max": 4,
               "adapt_margin": 4, "adapt_threshold": 0.002, "additional_res": 0},
-    "PREVIEW": {"noise": True, "timesteps_min": 1, "timesteps_max": 6,
+    "PREVIEW": {"noise": False, "cfl": 4.0, "timesteps_min": 1, "timesteps_max": 6,
                 "adapt_margin": 8, "adapt_threshold": 0.002, "additional_res": 2},
-    "FINAL": {"noise": True, "timesteps_min": 1, "timesteps_max": 8,
+    "FINAL": {"noise": True, "cfl": 2.0, "timesteps_min": 1, "timesteps_max": 8,
               "adapt_margin": 12, "adapt_threshold": 0.001, "additional_res": 4},
 }
 
@@ -140,8 +143,8 @@ def build_simulation_config(
     )
     return SimulationConfig(
         domain_resolution=domain_resolution,
-        # Draft skips the noise pass entirely: it doubles disk and bake time and
-        # adds only fine detail, which Draft is not for.
+        # Draft and Preview skip the noise pass: it doubles bake time and disk
+        # and adds only fine detail, which those tiers are not for.
         noise_upres=max(1, min(8, int(noise))) if tier["noise"] else 1,
         voxel_size_m=domain_size / domain_resolution,
         characteristic_velocity_mps=velocity_unit,
@@ -172,6 +175,7 @@ def build_simulation_config(
         particle_velocity_factor=scaling.particle_velocity_factor,
         playback_speed=scaling.playback_speed,
         buoyancy_shortfall=round(scaling.buoyancy_shortfall(profile.buoyancy_heat), 4),
+        cfl_condition=tier["cfl"],
         timesteps_min=tier["timesteps_min"],
         timesteps_max=tier["timesteps_max"],
         adapt_margin=tier["adapt_margin"],

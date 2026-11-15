@@ -92,12 +92,15 @@ def test_burst_count_scales_with_quality_to_hero_band():
     assert 8000 <= final.burst_count <= 10000
 
 
-def test_draft_has_no_noise_pass_but_final_keeps_it():
+def test_only_final_pays_for_the_noise_pass():
     draft = build_simulation_config(_physical(), "DRAFT", 128, 2, 7)
     preview = build_simulation_config(_physical(), "PREVIEW", 128, 2, 7)
     final = build_simulation_config(_physical(), "FINAL", 128, 2, 7)
-    assert draft.noise_upres == 1
-    assert preview.noise_upres == 2 and final.noise_upres == 2
+    assert draft.noise_upres == 1 and preview.noise_upres == 1
+    assert final.noise_upres == 2
+    # Looser CFL for the motion tiers; Final keeps the fine timestep.
+    assert draft.cfl_condition == preview.cfl_condition == 4.0
+    assert final.cfl_condition == 2.0
 
 
 def test_solver_cost_falls_with_lower_tier_and_never_changes_physics():

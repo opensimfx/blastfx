@@ -116,6 +116,14 @@ on bigger domains.
 - The rising column is mostly buoyant now (`stem_speed_U` 0.25-0.5, was 1.0-2.2): an
   imposed jet shed regular sheets (strong at 1.2 U, faint at 0.5 U, none without a jet).
 
+### Phase D: bake speed (tiers)
+
+- Measured on medium at Preview (first 46 frames): 257-322 s before; the noise pass was
+  ~50% of the cost, CFL 4 saved ~20-30%, max substeps 3 ~20%. Preview now skips the
+  noise pass and Draft and Preview use CFL 4 (`TIER_SOLVER`); Final keeps noise and
+  CFL 2. Same 46 frames: 104 s, same shape and timing, smoother billows without fine
+  soot detail. Full medium Preview (193 frames): 242 s, where 91 frames took 470 s.
+
 ## 0.2.0-beta2 (2026-10-19)
 
 Nuclear support on top of the beta1 rework.
