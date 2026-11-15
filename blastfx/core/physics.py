@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import math
 
+from .froude import time_unit, velocity_unit
+
 
 @dataclass(frozen=True)
 class AmbientConditions:
@@ -21,11 +23,15 @@ class PhysicalConfig:
 @dataclass(frozen=True)
 class DerivedPhysics:
     characteristic_radius_m: float
+    # Event length the shot covers (real seconds, before slow motion).
     characteristic_time_s: float
+    # Froude velocity scale U = sqrt(g*R) (see core.froude).
     characteristic_velocity_mps: float
     buoyancy_strength: float
     normalized_temperature: float
     intensity: float
+    # Froude time scale T = sqrt(R/g).
+    time_unit_s: float = 0.0
 
 
 def gravity_magnitude(value) -> float:
@@ -46,21 +52,16 @@ def derive_physics(config: PhysicalConfig) -> DerivedPhysics:
     radius = max(config.scale_m * 0.5, 1e-6)
     intensity = max(config.intensity, 0.0)
 
-    # Characteristic event time combines user duration with a gravity time scale.
-    # The user duration remains authoritative; gravity supplies a physically
-    # meaningful reference rather than changing the requested shot timing.
+    # The user duration is the event length the shot covers; gravity's own
+    # time scale is only a floor so a sub-frame request stays solvable.
     gravity_time = math.sqrt(max(radius, 1e-9) / max(config.ambient.gravity, 1e-9))
     requested_time = max(config.duration_s, 1e-4)
     time_s = max(requested_time, gravity_time * 0.25)
 
-    # Energy-density-inspired velocity scale, bounded to avoid singular behavior
-    # at tiny reference energies. The floor is a numerical guard (1e-6), not a
-    # physical minimum, so the scale stays proportional to radius/time_s across
-    # all explosion sizes. (Previously 0.1 m/s absolute floor broke scale
-    # invariance for small blasts.)
-    energy_scale = max(config.reference_energy, 1e-9)
-    velocity_energy = math.sqrt(2.0 * energy_scale / max(config.ambient.air_density * radius**3, 1e-9))
-    velocity = min(max(radius / time_s, 1e-6), max(velocity_energy, radius / time_s))
+    # Speeds come from Froude scaling (U = sqrt(g*R)), not from r/t: how fast
+    # a fireball moves depends on its size, not on how long the shot is.
+    # (reference_energy is kept as an artistic, cache-identity input only.)
+    velocity = velocity_unit(radius, config.ambient.gravity)
 
     buoyancy = max(0.0, intensity) * min(5.0, radius / max(config.ambient.gravity * time_s**2, 1e-9))
     normalized_temperature = min(10.0, 1.0 + intensity)
@@ -72,6 +73,7 @@ def derive_physics(config: PhysicalConfig) -> DerivedPhysics:
         buoyancy_strength=buoyancy,
         normalized_temperature=normalized_temperature,
         intensity=intensity,
+        time_unit_s=time_unit(radius, config.ambient.gravity),
     )
 
 

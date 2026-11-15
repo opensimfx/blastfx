@@ -54,13 +54,21 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     fps = context.scene.render.fps / context.scene.render.fps_base
     radius = physical.characteristic_radius_m * profile.source_radius
     start = int(config["start_frame"])
-    emission, lifetime, _ = profile.burst_timing(fps)
+    # Windows are event times (in T) stretched by slow motion into frames.
+    emission, lifetime, _ = profile.burst_frames(
+        physical.time_unit_s, numerical.playback_speed, fps
+    )
 
     name = component_name(blast_id, suffix)
     obj = add_mesh_object(
         collection,
         name,
-        lambda bm: _hemisphere(bm, radius, upper, flip=profile.burst_flip_lower),
+        # Only the lower cap flips: the docstring of _hemisphere says it keeps the
+        # cap below the equator but bursts upward. Flipping the upper cap too
+        # pointed its normals inward, so it burst into itself.
+        lambda bm: _hemisphere(
+            bm, radius, upper, flip=bool(profile.burst_flip_lower and not upper)
+        ),
         controller.location,
     )
 
@@ -80,16 +88,19 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # particles would fight the buoyancy-driven ascension (research tip).
         settings.effector_weights.gravity = 0.0
         settings.mass = 0.1
+        # The fluid takes its initial velocity from these particles: scene
+        # speed (burst_speed_U * U * playback). The flow's velocity_factor
+        # then divides it by the solver time scale (core.froude).
+        settings.normal_factor = float(numerical.burst_normal_velocity)
+        settings.factor_random = float(numerical.burst_random_velocity)
         set_particle_seed(settings, _particle_seed(numerical.seed, suffix))
 
     psys = _add_particle_system(obj, f"{name}_psys", configure_particles)
 
     _, flow = configure_fluid_modifier(obj, "FLOW")
     # Initial velocity comes from the particle system; the cap mesh itself
-    # never injects (flow_source=PARTICLE_SYSTEM). Research flow-heat trick:
-    # keep the injected temperature tiny (profile.flow_heat ~ 0.05, the
-    # Mantaflow "Flow Heat" slider maps to this RNA property) so buoyancy
-    # doesn't blow the fire out and burning stays visible longer.
+    # never injects (flow_source=PARTICLE_SYSTEM). Injected heat is the
+    # profile's flow_heat scaled by the artist's fire temperature.
     configure_flow(
         flow,
         flow_type="BOTH",
@@ -99,7 +110,11 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         density=numerical.density_scale,
         fuel=profile.fuel_amount,
         subframes=5,
+        velocity_factor=numerical.particle_velocity_factor,
     )
+    # Constant injected volume across quality tiers (see sim_config).
+    flow.use_particle_size = True
+    flow.particle_size = float(numerical.burst_particle_size_cells)
     # The particle system IS the injection window: particles are seeded over
     # `emission` frames and live `lifetime` frames, so smoke stops being fed
     # once they die (verified empirically: cache sizes plateau after the last

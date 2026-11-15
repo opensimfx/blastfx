@@ -1,152 +1,350 @@
-from bpy.types import Panel
+"""Sidebar panels (3D View > N panel > BlastFX).
 
+Layout follows docs/UI_STYLE.md, identical in every OpenSimFX add-on.
+"""
+
+import bpy
+from bpy.types import Menu, Panel
+
+from ..presets import registry
 from ..presets.registry import all_presets
 from ..core.cache import status
 from ..core.bake_job import active_job, job_status, pending_bakes
 
+_STATE_LABELS = {
+    "BAKING_DATA": "Baking",
+    "BAKING_NOISE": "Baking",
+    "FINALIZING": "Finalizing",
+    "COMPLETED": "Baked",
+    "BAKED": "Baked",
+    "FAILED": "Failed",
+    "PARTIAL": "Partial",
+    "CANCEL_REQUESTED": "Cancelling",
+    "CANCELLED": "Cancelled",
+    "NOT_BAKED": "Not baked",
+    "READY_TO_BAKE": "Not baked",
+    "STALE": "Out of date",
+}
 
-class BLASTFX_PT_main(Panel):
-    bl_label = "Blast FX"
-    bl_idname = "BLASTFX_PT_main"
+
+def _props(context):
+    return context.scene.blastfx
+
+
+def _split(layout):
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+    return layout
+
+
+def _controller(context):
+    obj = context.active_object
+    return obj if obj is not None and obj.get("blastfx_controller") else None
+
+
+def _domain_settings(controller):
+    if not controller.users_collection:
+        return None
+    domain = next(
+        (o for o in controller.users_collection[0].objects if o.get("blastfx_role") == "domain"),
+        None,
+    )
+    if domain is None:
+        return None
+    mod = domain.modifiers.get("BlastFX Fluid") or domain.modifiers.get("Fluid")
+    return mod.domain_settings if mod else None
+
+
+def _plan(context):
+    """The same plan Create would build, or None if the settings are invalid."""
+    try:
+        from ..core.blast_plan import plan_blast
+
+        return plan_blast(_props(context), context.scene)
+    except Exception:
+        return None
+
+
+def _wrapped(layout, text, icon="INFO", width=38):
+    """Multi-line label: sidebar labels truncate long text instead of wrapping."""
+    import textwrap
+
+    for index, line in enumerate(textwrap.wrap(text, width) or [""]):
+        layout.label(text=line, icon=icon if index == 0 else "BLANK1")
+
+
+def _readout(layout, rows):
+    col = layout.column(align=True)
+    for label, value in rows:
+        row = col.split(factor=0.5)
+        row.label(text=label)
+        row.label(text=value)
+
+
+class _Base:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Blast FX"
+    bl_category = "BlastFX"
+
+
+class _Sub(_Base):
+    bl_parent_id = "BLASTFX_PT_main"
+    bl_options = {"DEFAULT_CLOSED"}
+
+
+class BLASTFX_MT_presets(Menu):
+    bl_label = "Presets"
+    bl_idname = "BLASTFX_MT_presets"
 
     def draw(self, context):
-        props = context.scene.blastfx
-        layout = self.layout
-        running = active_job() is not None
-        settings = layout.column()
-        settings.enabled = not running
-
-        box = settings.box()
-        box.label(text="Explosion")
-        box.prop(props, "explosion_type")
-        box.prop(props, "preset_id")
-        box.prop(props, "scale")
-        box.prop(props, "intensity")
-        box.prop(props, "speed")
-        box.prop(props, "start_frame")
-        box.prop(props, "duration")
-        box.prop(props, "seed")
-
-
-        box = settings.box()
-        box.label(text="Physical Model")
-        box.prop(props, "reference_energy")
-        box.label(text="SI scale is interpreted in metres.")
-        box.label(text="Timing is converted from seconds using scene FPS.")
-
-        box = settings.box()
-        box.label(text="Components")
-        box.prop(props, "use_fireball")
-        box.prop(props, "use_stem")
-        box.prop(props, "use_dust")
-        box.prop(props, "use_shockwave")
-        box.prop(props, "use_debris")
-        box.prop(props, "use_flash")
-        box.prop(props, "use_camera_fx")
-        if props.use_camera_fx:
-            camera = context.scene.camera
-            if camera and camera.get("blastfx_generated"):
-                box.label(text=f"Active Camera: {camera.name}")
-        box.prop(props, "use_exposure")
-        box.prop(props, "use_heat_distortion")
-
-        box = settings.box()
-        box.label(text="Simulation")
-        box.prop(props, "quality")
-        box.prop(props, "resolution")
-        box.prop(props, "noise_upres")
-        box.prop(props, "turbulence")
-        box.prop(props, "smoke_density")
-        box.prop(props, "fire_temperature")
-
-        layout.operator("blastfx.create", icon="PHYSICS")
-        layout.operator("blastfx.duplicate", icon="DUPLICATE")
-        layout.operator("blastfx.create_batch", icon="RNA")
-        layout.operator("blastfx.validate", icon="CHECKMARK")
-
-        box = layout.box()
-        box.label(text="Cache")
-        if not running:
-            box.operator("blastfx.bake_all", icon="RENDER_ANIMATION")
-        if pending_bakes():
-            box.label(text=f"Bake queue: {len(pending_bakes())} pending")
-        controller = context.active_object if context.active_object and context.active_object.get("blastfx_controller") else None
-        if controller:
-            domain_obj = next((o for o in controller.users_collection[0].objects if o.get("blastfx_role") == "domain"), None) if controller.users_collection else None
-            domain_settings = None
-            if domain_obj:
-                mod = domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid")
-                if mod and mod.domain_settings:
-                    domain_settings = mod.domain_settings
-            cache_status = status(
-                props,
-                controller["blastfx_id"],
-                domain_settings,
-                controller.get("blastfx_physics_state"),
-            )
-            worker_status = job_status(controller)
-            state = worker_status.get("state") if worker_status else cache_status
-            state_labels = {
-                "BAKING_DATA": "Baking",
-                "BAKING_NOISE": "Baking",
-                "FINALIZING": "Finalizing",
-                "COMPLETED": "Completed",
-                "FAILED": "Failed",
-                "PARTIAL": "Partial",
-                "CANCEL_REQUESTED": "Cancelling",
-                "CANCELLED": "Cancelled",
-            }
-            display_state = state_labels.get(state, state.replace("_", " ").title())
-            box.label(text="BAKE")
-            box.label(text=f"State: {display_state}", icon="TIME" if running else "CHECKMARK")
-            if worker_status:
-                elapsed = int(worker_status.get("elapsed_seconds", 0))
-                if "current_frame" in worker_status:
-                    box.label(
-                        text=(
-                            f"Frame: {worker_status['current_frame']} / "
-                            f"{worker_status['frame_end']}"
-                        )
-                    )
-                if "progress" in worker_status:
-                    box.label(text=f"Progress: {worker_status['progress'] * 100:.1f}%")
-                else:
-                    box.label(text="Waiting for first cached frame...")
-                box.label(
-                    text=f"Elapsed: {elapsed // 60:02d}:{elapsed % 60:02d}"
-                )
-                if state in {"BAKING_DATA", "BAKING_NOISE"} and worker_status.get("eta_seconds") is not None:
-                    eta = int(worker_status["eta_seconds"])
-                    box.label(text=f"Remaining: ~{eta // 60:02d}:{eta % 60:02d}")
-                elif state in {"BAKING_DATA", "BAKING_NOISE"}:
-                    box.label(text="Remaining: Calculating...")
-                elif state == "FINALIZING":
-                    box.label(text="ETA: —")
-                if worker_status.get("message"):
-                    box.label(text=worker_status["message"][:96])
-                if worker_status.get("generation"):
-                    box.label(text=f"Generation: {worker_status['generation'][:12]}")
-            if domain_settings:
-                box.label(text=f"Resolution: {domain_settings.resolution_max}")
-                box.label(text=f"Frames: {domain_settings.cache_frame_start}-{domain_settings.cache_frame_end}")
-            if running:
-                box.operator("blastfx.cancel_bake", icon="CANCEL")
-            else:
-                box.operator("blastfx.bake", icon="REC")
-                box.operator("blastfx.free", icon="LOOP_BACK")
-                box.operator("blastfx.rebuild", icon="FILE_REFRESH")
-                box.operator("blastfx.remove", icon="TRASH")
-        else:
-            box.label(text="Select a Blast FX controller")
-
-        box = layout.box()
-        box.label(text="Factory Presets")
         for preset in all_presets():
-            op = box.operator("blastfx.apply_preset", text=preset.label)
+            op = self.layout.operator("blastfx.apply_preset", text=preset.label)
             op.preset_id = preset.id
 
 
-CLASSES = (BLASTFX_PT_main,)
+class BLASTFX_PT_main(_Base, Panel):
+    bl_label = "BlastFX"
+    bl_idname = "BLASTFX_PT_main"
+
+    def draw(self, context):
+        props = _props(context)
+        layout = self.layout
+        running = active_job() is not None
+        preset = registry.PRESETS.get(props.preset_id)
+
+        layout.menu("BLASTFX_MT_presets", text=preset.label if preset else "Choose a Preset", icon="PRESET")
+        if preset and preset.description:
+            _wrapped(layout.column(align=True), preset.description)
+
+        col = layout.column()
+        col.enabled = not running
+        col.scale_y = 1.4
+        col.operator("blastfx.create", icon="ADD")
+        layout.operator("blastfx.create_batch", text="Create Batch...", icon="DUPLICATE")
+
+        controller = _controller(context)
+        if controller is None:
+            layout.label(text="Select a blast controller to edit it.", icon="RESTRICT_SELECT_OFF")
+            return
+        box = layout.box()
+        box.label(text=controller.name, icon="OUTLINER_OB_EMPTY")
+        row = box.row(align=True)
+        row.enabled = not running
+        row.operator("blastfx.rebuild", icon="FILE_REFRESH")
+        row.operator("blastfx.duplicate", icon="DUPLICATE", text="Duplicate")
+        box.separator()
+        remove = box.row()
+        remove.enabled = not running
+        remove.operator("blastfx.remove", icon="TRASH")
+
+
+class BLASTFX_PT_explosion(_Base, Panel):
+    bl_label = "Explosion"
+    bl_idname = "BLASTFX_PT_explosion"
+    bl_parent_id = "BLASTFX_PT_main"
+
+    def draw(self, context):
+        props = _props(context)
+        layout = _split(self.layout)
+        layout.enabled = active_job() is None
+        layout.prop(props, "explosion_type")
+        col = layout.column(align=True)
+        if props.explosion_type == "NUCLEAR":
+            col.prop(props, "yield_kt")
+        else:
+            col.prop(props, "scale")
+        col = layout.column(align=True)
+        col.prop(props, "speed")
+        col.prop(props, "duration")
+        if props.duration <= 0.0:
+            plan = _plan(context)
+            if plan is not None:
+                layout.label(text=f"Automatic: {plan.physical.characteristic_time_s:.1f} s of event", icon="INFO")
+        col = layout.column(align=True)
+        col.prop(props, "start_frame")
+        col.prop(props, "seed")
+
+
+class BLASTFX_PT_components(_Base, Panel):
+    bl_label = "Components"
+    bl_idname = "BLASTFX_PT_components"
+    bl_parent_id = "BLASTFX_PT_main"
+
+    def draw(self, context):
+        props = _props(context)
+        layout = _split(self.layout)
+        layout.enabled = active_job() is None
+        col = layout.column(heading="Simulation", align=True)
+        col.prop(props, "use_fireball")
+        col.prop(props, "use_stem")
+        col.prop(props, "use_dust")
+        col.prop(props, "use_shockwave")
+        col.prop(props, "use_debris")
+        if props.explosion_type == "NUCLEAR":
+            col.prop(props, "use_rapatronic")
+        col = layout.column(heading="Cinematic", align=True)
+        col.prop(props, "use_flash")
+        col.prop(props, "use_camera_fx")
+        col.prop(props, "use_exposure")
+        col.prop(props, "use_heat_distortion")
+        camera = context.scene.camera
+        if props.use_camera_fx and camera is not None and camera.get("blastfx_generated"):
+            layout.label(text=f"Scene camera: {camera.name}", icon="CAMERA_DATA")
+
+
+class BLASTFX_PT_look(_Sub, Panel):
+    bl_label = "Look"
+    bl_idname = "BLASTFX_PT_look"
+
+    def draw(self, context):
+        props = _props(context)
+        layout = _split(self.layout)
+        layout.enabled = active_job() is None
+        col = layout.column(align=True)
+        col.prop(props, "fire_temperature")
+        col.prop(props, "smoke_density")
+        col.prop(props, "turbulence")
+        col.prop(props, "intensity")
+
+
+class BLASTFX_PT_cache(_Base, Panel):
+    bl_label = "Cache and Bake"
+    bl_idname = "BLASTFX_PT_cache"
+    bl_parent_id = "BLASTFX_PT_main"
+
+    def draw(self, context):
+        props = _props(context)
+        layout = _split(self.layout)
+        running = active_job() is not None
+
+        settings = layout.column()
+        settings.enabled = not running
+        settings.prop(props, "quality", expand=True)
+        col = settings.column(align=True)
+        col.prop(props, "resolution")
+        noise = col.row()
+        noise.active = props.quality == "FINAL"
+        noise.prop(props, "noise_upres")
+        settings.prop(props, "cache_subdir")
+        if props.quality != "FINAL":
+            settings.label(text="Draft and Preview skip the noise pass.", icon="INFO")
+
+        controller = _controller(context)
+        if controller is None:
+            if not running:
+                layout.operator("blastfx.bake_all", icon="RENDER_ANIMATION")
+            return
+
+        domain_settings = _domain_settings(controller)
+        cache_state = status(props, controller["blastfx_id"], domain_settings,
+                             controller.get("blastfx_physics_state"))
+        worker = job_status(controller)
+        state = worker.get("state") if worker else cache_state
+        box = layout.box()
+        _readout(box, [("State", _STATE_LABELS.get(state, state.replace("_", " ").title()))])
+        if domain_settings is not None:
+            _readout(box, [
+                ("Resolution", str(domain_settings.resolution_max)),
+                ("Frames", f"{domain_settings.cache_frame_start}-{domain_settings.cache_frame_end}"),
+            ])
+        if worker and running:
+            elapsed = int(worker.get("elapsed_seconds", 0))
+            rows = [("Elapsed", f"{elapsed // 60:02d}:{elapsed % 60:02d}")]
+            if "current_frame" in worker:
+                rows.append(("Frame", f"{worker['current_frame']} / {worker['frame_end']}"))
+            if worker.get("eta_seconds") is not None:
+                eta = int(worker["eta_seconds"])
+                rows.append(("Remaining", f"~{eta // 60:02d}:{eta % 60:02d}"))
+            _readout(box, rows)
+            if "progress" in worker:
+                box.progress(factor=float(worker["progress"]), text=f"{worker['progress'] * 100:.0f}%")
+        if worker and worker.get("message") and state in {"FAILED", "PARTIAL"}:
+            box.alert = True
+            box.label(text=worker["message"][:96], icon="ERROR")
+        if pending_bakes():
+            box.label(text=f"Queue: {len(pending_bakes())} pending", icon="SORTTIME")
+
+        if running:
+            layout.operator("blastfx.cancel_bake", icon="CANCEL")
+            return
+        col = layout.column()
+        col.scale_y = 1.2
+        col.operator("blastfx.bake", icon="REC")
+        layout.operator("blastfx.bake_all", icon="RENDER_ANIMATION")
+        layout.separator()
+        layout.operator("blastfx.free", icon="TRASH")
+
+
+class BLASTFX_PT_readout(_Sub, Panel):
+    bl_label = "Readout"
+    bl_idname = "BLASTFX_PT_readout"
+
+    def draw(self, context):
+        layout = self.layout
+        plan = _plan(context)
+        if plan is None:
+            layout.label(text="Settings are invalid; see Diagnostics.", icon="ERROR")
+            return
+        physical, numerical = plan.physical, plan.numerical
+        radius = physical.characteristic_radius_m
+        voxels_per_radius = radius / max(numerical.voxel_size_m, 1e-9)
+        frames = plan.frame_end - plan.frame_start
+        _readout(layout, [
+            ("Fireball diameter", f"{plan.scale_m:.1f} m"),
+            ("Time unit (T)", f"{physical.time_unit_s:.2f} s"),
+            ("Event length", f"{physical.characteristic_time_s:.1f} s"),
+            ("Shot", f"{frames} frames at {plan.fps:g} fps"),
+            ("Solver time scale", f"{numerical.time_scale_multiplier:.2f}"),
+            ("Resolution", f"{numerical.domain_resolution}"),
+            ("Voxels per radius", f"{voxels_per_radius:.0f}"),
+            ("Voxel size", f"{numerical.voxel_size_m:.2f} m"),
+            ("Noise pass", f"x{numerical.noise_upres}" if numerical.noise_upres > 1 else "off"),
+        ])
+        for warning in plan.warnings:
+            box = layout.box()
+            box.alert = True
+            box.label(text=warning[:90], icon="ERROR")
+
+
+class BLASTFX_PT_diagnostics(_Sub, Panel):
+    bl_label = "Diagnostics"
+    bl_idname = "BLASTFX_PT_diagnostics"
+
+    def draw(self, context):
+        from ..core.validation import validate_props, validate_scene
+
+        layout = self.layout
+        props = _props(context)
+        result = validate_props(props)
+        scene_result = validate_scene(context.scene)
+        plan = _plan(context)
+        errors = result.errors + scene_result.errors
+        warnings = result.warnings + scene_result.warnings + list(plan.warnings if plan else ())
+        if not errors and not warnings:
+            layout.label(text="No issues found.", icon="CHECKMARK")
+        for message in errors:
+            layout.label(text=message[:90], icon="ERROR")
+        for message in warnings:
+            layout.label(text=message[:90], icon="INFO")
+        layout.operator("blastfx.validate", icon="CHECKMARK")
+
+
+class BLASTFX_PT_presets(_Sub, Panel):
+    bl_label = "Preset Files"
+    bl_idname = "BLASTFX_PT_presets"
+
+    def draw(self, context):
+        self.layout.operator("blastfx.save_preset", icon="EXPORT")
+
+
+CLASSES = (
+    BLASTFX_MT_presets,
+    BLASTFX_PT_main,
+    BLASTFX_PT_explosion,
+    BLASTFX_PT_components,
+    BLASTFX_PT_look,
+    BLASTFX_PT_cache,
+    BLASTFX_PT_readout,
+    BLASTFX_PT_diagnostics,
+    BLASTFX_PT_presets,
+)

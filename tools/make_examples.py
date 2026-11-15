@@ -1,4 +1,4 @@
-"""Generate the Blast FX regression scenes listed in docs/DEVELOPMENT.md plan F.
+"""Generate the BlastFX regression scenes listed in docs/DEVELOPMENT.md plan F.
 
 Run with:
     /Applications/Blender.app/Contents/MacOS/Blender --background \
@@ -38,7 +38,7 @@ from mathutils import Vector  # noqa: E402
 from blastfx.addon.registration import register, unregister  # noqa: E402
 from blastfx.core.explosion import create_explosion  # noqa: E402
 from blastfx.presets.apply import apply_preset  # noqa: E402
-from blastfx.animation import _animation_config  # noqa: E402
+from blastfx.core.blast_plan import plan_blast  # noqa: E402
 from blastfx.render.settings import configure_render_settings, configure_world, configure_camera_dof  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -180,7 +180,7 @@ def build_scene(filename, preset_id, seed):
     scene.frame_start = int(domain.cache_frame_start)
     scene.frame_end = int(domain.cache_frame_end)
 
-    config = _animation_config(bpy.context, props)
+    config = plan_blast(props, scene).config_dict(props)
     _add_camera(scene, config["domain_envelope"])
     _add_neutral_world(scene)
     _add_sun(scene)

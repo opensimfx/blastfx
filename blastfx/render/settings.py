@@ -1,4 +1,4 @@
-"""Render, world, and camera helpers for Blast FX scenes."""
+"""Render, world, and camera helpers for BlastFX scenes."""
 
 import bpy
 
@@ -22,7 +22,7 @@ def configure_render_settings(scene, quality="PREVIEW"):
     scene.cycles.glossy_bounces = 4
     scene.cycles.transmission_bounces = 12
     scene.cycles.film_exposure = 1.0
-    scene.render.film_transparent = True
+    # film_transparent is left to the artist: forcing it hid their sky/world.
     if quality == "DRAFT":
         scene.cycles.samples = 32
     elif quality == "FINAL":

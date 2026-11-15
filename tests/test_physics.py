@@ -28,7 +28,15 @@ def test_physics_derivation():
 
     assert derived.characteristic_radius_m == 5.0
     assert derived.characteristic_time_s == 5.0
-    assert derived.characteristic_velocity_mps == 1.0
+    # Speed is the Froude scale sqrt(g R), independent of shot length.
+    assert derived.characteristic_velocity_mps == (9.80665 * 5.0) ** 0.5
+    assert derived.time_unit_s == (5.0 / 9.80665) ** 0.5
+
+
+def test_shot_length_does_not_change_blast_speed():
+    short = derive_physics(PhysicalConfig(scale_m=10.0, reference_energy=1.0, intensity=1.0, duration_s=2.0))
+    long = derive_physics(PhysicalConfig(scale_m=10.0, reference_energy=1.0, intensity=1.0, duration_s=20.0))
+    assert short.characteristic_velocity_mps == long.characteristic_velocity_mps
 
 
 def test_frame_conversion_is_fps_aware():

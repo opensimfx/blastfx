@@ -30,7 +30,7 @@ Keep the source repository outside Blender's installation directory.
 1. Edit source.
 2. Open Blender.
 3. Install/reload the add-on.
-4. Open `N > Blast FX`.
+4. Open `N > BlastFX`.
 5. Test creation at the 3D cursor.
 6. Inspect the generated collection.
 7. Test preview bake.
@@ -43,7 +43,7 @@ Keep the source repository outside Blender's installation directory.
 
 The add-on exposes:
 
-`Blast FX > Advanced > Reload`
+`BlastFX > Advanced > Reload`
 
 During early development, restarting Blender is still preferred when changing
 registration, property definitions or module imports.
@@ -98,7 +98,7 @@ simulation is expensive.
 
 ## Mantaflow bake workers
 
-Blast FX starts Mantaflow baking in a separate Blender `--background`
+BlastFX starts Mantaflow baking in a separate Blender `--background`
 process. The main Blender process saves a temporary snapshot, launches the
 worker, and polls an atomic job status file with `bpy.app.timers`; it never
 uses Python threads around `bpy` or waits synchronously for `bake_all()`.

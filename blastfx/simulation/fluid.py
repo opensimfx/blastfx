@@ -47,7 +47,7 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
                    fuel=0.0, velocity=(0.0, 0.0, 0.0), velocity_normal=0.0,
                    velocity_random=0.0, surface_distance=1.0,
                    volume_density=1.0, subframes=2, flow_source="MESH",
-                   particle_system=None):
+                   particle_system=None, velocity_factor=1.0):
     """Configure only FluidFlowSettings properties documented by Blender 5.2."""
     required = {
         "flow_source": flow_source,
@@ -62,6 +62,9 @@ def configure_flow(flow, *, flow_type="SMOKE", temperature=1.0, density=1.0,
         "velocity_coord": Vector(velocity),
         "velocity_normal": max(-100.0, min(100.0, float(velocity_normal))),
         "velocity_random": max(0.0, min(10.0, float(velocity_random))),
+        # Multiplies particle/object source velocity; Froude scaling uses it
+        # to hand the solver 1/time_scale of the scene speed.
+        "velocity_factor": max(-100.0, min(100.0, float(velocity_factor))),
         "subframes": max(0, min(200, int(subframes))),
         "use_inflow": True,
     }
@@ -133,4 +136,26 @@ def primitive_flow(collection, name, location, primitive, **kwargs):
             ),
             location,
         )
+    if primitive == "annulus":
+        inner = kwargs["inner_radius"]
+        outer = kwargs["outer_radius"]
+        depth = kwargs.get("depth", 1.0)
+        segments = kwargs.get("segments", 64)
+
+        def build(bm):
+            import math
+            rings = []
+            for radius, z in ((outer, -depth / 2), (outer, depth / 2), (inner, depth / 2), (inner, -depth / 2)):
+                rings.append([
+                    bm.verts.new((radius * math.cos(2 * math.pi * i / segments),
+                                  radius * math.sin(2 * math.pi * i / segments), z))
+                    for i in range(segments)
+                ])
+            for a, b in zip(rings, rings[1:] + rings[:1]):
+                for i in range(segments):
+                    j = (i + 1) % segments
+                    bm.faces.new((a[i], a[j], b[j], b[i]))
+            bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+
+        return add_mesh_object(collection, name, build, location)
     raise ValueError(f"Unknown flow primitive: {primitive}")

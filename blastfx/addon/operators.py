@@ -96,7 +96,7 @@ class BLASTFX_OT_remove(Operator):
     def execute(self, context):
         try:
             if active_job():
-                raise RuntimeError("A Blast FX bake is already running.")
+                raise RuntimeError("A BlastFX bake is already running.")
             remove_explosion(context.active_object)
         except Exception as exc:
             self.report({"ERROR"}, str(exc))
@@ -114,7 +114,7 @@ class BLASTFX_OT_bake(Operator):
     def execute(self, context):
         controller = context.active_object
         if not controller or not controller.get("blastfx_controller"):
-            self.report({"ERROR"}, "Select a Blast FX controller.")
+            self.report({"ERROR"}, "Select a BlastFX controller.")
             return {"CANCELLED"}
 
         collection = next(
@@ -122,7 +122,7 @@ class BLASTFX_OT_bake(Operator):
             None,
         )
         if not collection:
-            self.report({"ERROR"}, "Controller not in a Blast FX collection.")
+            self.report({"ERROR"}, "Controller not in a BlastFX collection.")
             return {"CANCELLED"}
 
         domain_obj = None
@@ -137,7 +137,7 @@ class BLASTFX_OT_bake(Operator):
 
         try:
             if active_job():
-                self.report({"ERROR"}, "A Blast FX bake is already running.")
+                self.report({"ERROR"}, "A BlastFX bake is already running.")
                 return {"CANCELLED"}
             mod = domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid")
             if not mod:
@@ -175,7 +175,7 @@ class BLASTFX_OT_free(Operator):
     def execute(self, context):
         controller = context.active_object
         if not controller or not controller.get("blastfx_controller"):
-            self.report({"ERROR"}, "Select a Blast FX controller.")
+            self.report({"ERROR"}, "Select a BlastFX controller.")
             return {"CANCELLED"}
 
         collection = next(
@@ -183,7 +183,7 @@ class BLASTFX_OT_free(Operator):
             None,
         )
         if not collection:
-            self.report({"ERROR"}, "Controller not in a Blast FX collection.")
+            self.report({"ERROR"}, "Controller not in a BlastFX collection.")
             return {"CANCELLED"}
 
         domain_obj = None
@@ -220,17 +220,25 @@ class BLASTFX_OT_rebuild(Operator):
     def execute(self, context):
         controller = context.active_object
         if not controller or not controller.get("blastfx_controller"):
-            self.report({"ERROR"}, "Select a Blast FX controller.")
+            self.report({"ERROR"}, "Select a BlastFX controller.")
             return {"CANCELLED"}
 
         try:
             if active_job():
                 raise RuntimeError("Cancel the active bake before rebuilding the blast.")
-            rebuild_explosion(context, controller)
+            warnings = rebuild_explosion(context, controller)
         except Exception as exc:
             self.report({"ERROR"}, f"Rebuild failed: {exc}")
             return {"CANCELLED"}
 
+        for warning in warnings:
+            self.report({"WARNING"}, warning)
+        # Builders make emitters active to add particle systems; hand the
+        # controller back so Bake / Rebuild work without reselecting it.
+        for obj in context.selected_objects:
+            obj.select_set(False)
+        context.view_layer.objects.active = controller
+        controller.select_set(True)
         self.report({"INFO"}, "Blast rebuilt.")
         return {"FINISHED"}
 
@@ -268,7 +276,7 @@ class BLASTFX_OT_duplicate(Operator):
     def execute(self, context):
         source = context.active_object
         if not source or not source.get("blastfx_controller"):
-            self.report({"ERROR"}, "Select a Blast FX controller.")
+            self.report({"ERROR"}, "Select a BlastFX controller.")
             return {"CANCELLED"}
         if active_job():
             self.report({"ERROR"}, "Cancel the active bake before duplicating a blast.")
@@ -352,7 +360,7 @@ class BLASTFX_OT_bake_all(Operator):
 
     def execute(self, context):
         if active_job():
-            self.report({"ERROR"}, "A Blast FX bake is already running.")
+            self.report({"ERROR"}, "A BlastFX bake is already running.")
             return {"CANCELLED"}
         controllers = sorted(
             (o for o in bpy.data.objects if o.get("blastfx_controller")),

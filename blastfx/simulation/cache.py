@@ -79,7 +79,7 @@ def validate_bake_setup(context, domain_obj):
 
     collection = next((c for c in domain_obj.users_collection if c.name.startswith("Blast_")), None)
     if collection is None:
-        raise RuntimeError("Blast domain is not inside a Blast FX collection")
+        raise RuntimeError("Blast domain is not inside a BlastFX collection")
     flows = _flow_objects(domain_obj, collection)
     if not flows:
         raise RuntimeError("Blast domain has no valid Mantaflow FLOW objects")

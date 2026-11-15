@@ -8,70 +8,12 @@ from .shockwave import build_shockwave
 from .particles import build_debris_particles, build_spark_particles
 from .physical_config import build_simulation_config
 from .cache import configure_cache
-from ..core.physics import AmbientConditions, PhysicalConfig, derive_physics, gravity_magnitude, effective_scale_m
-from ..core.domain_envelope import build_domain_envelope
-from ..core.explosion_profile import profile_for, shading_for
+from ..core.blast_plan import plan_blast
 
 
-def build_explosion(context, collection, controller, props):
-    # Nuclear yield overrides the manual scale here too: build_explosion is
-    # also called on rebuild, where it re-derives physics from props.scale.
-    scale_m = effective_scale_m(props)
-    physical = derive_physics(
-        PhysicalConfig(
-            scale_m=scale_m,
-            reference_energy=float(props.reference_energy),
-            intensity=float(props.intensity),
-            duration_s=float(props.duration),
-            ambient=AmbientConditions(gravity=gravity_magnitude(context.scene.gravity)),
-        )
-    )
-
-    profile = profile_for(props.explosion_type)
-    fps = context.scene.render.fps / context.scene.render.fps_base
-    timeline = physical.characteristic_time_s / max(float(props.speed), 0.05)
-    numerical = build_simulation_config(
-        physical,
-        props.quality,
-        props.resolution,
-        props.noise_upres,
-        props.seed,
-        props.turbulence,
-        props.smoke_density,
-        props.fire_temperature,
-        profile,
-        timeline_duration_s=timeline,
-        fps=fps,
-    )
-
-    config = {
-        "type": props.explosion_type,
-        "preset": props.preset_id,
-        "scale": scale_m,
-        "intensity": props.intensity,
-        "speed": props.speed,
-        "duration": props.duration,
-        "start_frame": props.start_frame,
-        "seed": props.seed,
-        "quality": props.quality,
-        "resolution": props.resolution,
-        "noise": props.noise_upres,
-        "turbulence": props.turbulence,
-        "smoke_density": props.smoke_density,
-        "fire_temperature": props.fire_temperature,
-        "physical": physical,
-        "numerical": numerical,
-        "timeline_duration_s": physical.characteristic_time_s / max(float(props.speed), 0.05),
-        "profile": profile,
-        "shading": shading_for(props.explosion_type),
-    }
-    config["domain_envelope"] = build_domain_envelope(
-        physical,
-        numerical,
-        gravity_magnitude(context.scene.gravity),
-        config["timeline_duration_s"],
-        profile,
-    )
+def build_explosion(context, collection, controller, props, plan=None):
+    plan = plan or plan_blast(props, context.scene)
+    config = plan.config_dict(props)
 
     # Build order matters: domain first, emitters second.
     domain = build_domain(context, collection, controller, config)

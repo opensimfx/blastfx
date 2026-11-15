@@ -21,7 +21,19 @@ def create_blast_collection(scene, blast_id: str):
     return collection
 
 
+def remove_generated_children(collection):
+    """Delete generated child collections (instance prototypes) and their objects."""
+    for child in list(collection.children):
+        if not child.get("blastfx_generated", False):
+            continue
+        remove_generated_children(child)
+        for obj in list(child.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.collections.remove(child)
+
+
 def remove_collection(collection):
+    remove_generated_children(collection)
     for obj in list(collection.objects):
         if obj.get("blastfx_generated", False):
             bpy.data.objects.remove(obj, do_unlink=True)

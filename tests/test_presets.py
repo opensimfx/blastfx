@@ -79,11 +79,9 @@ def test_heavy_builtin_preset_maps_profile():
     props = FakeProps()
     apply_preset(props, "heavy")
     assert props.explosion_type == "HEAVY"
-    assert props.resolution == 256
-
-    profile = profile_for("HEAVY")
-    assert profile.burst_emission_frames == 36
-    assert profile.burst_lifetime_frames == 40
+    # Factory presets no longer pin resolution: 0 = size-derived auto.
+    assert props.resolution == 0
+    assert profile_for("HEAVY").stem
 
 
 def test_nuclear_builtin_presets_map_profile_and_components():
@@ -101,7 +99,7 @@ def test_nuclear_builtin_presets_map_profile_and_components():
     apply_preset(props, "nuclear_groundburst")
     assert props.explosion_type == "NUCLEAR"
     assert props.yield_kt == 15.0
-    assert props.resolution == 256
+    assert props.resolution == 0
     assert props.use_rapatronic is True
     assert props.use_debris is True
 
@@ -113,5 +111,33 @@ def test_nuclear_builtin_presets_map_profile_and_components():
     assert air_props.use_debris is False
 
     profile = profile_for("NUCLEAR")
-    assert profile.burst_emission_frames == 48
-    assert profile.burst_lifetime_frames == 80
+    assert profile.stem and profile.ground_surge
+
+
+def test_factory_presets_use_real_world_sizes():
+    registry.load_presets_from_directory()
+    builtins = registry._builtin_presets()
+    sizes = [builtins[name].defaults["scale"] for name in ("small", "medium", "large", "large_ground", "heavy")]
+    assert sizes == sorted(sizes) and sizes[0] >= 2.0
+    for preset in builtins.values():
+        assert 0.05 <= preset.defaults["speed"] <= 1.0
+        assert "resolution" not in preset.simulation
+
+
+def test_json_cannot_shadow_factory_presets(tmp_path):
+    (tmp_path / "small.json").write_text(
+        '{"id": "small", "label": "x", "type": "GROUND", "defaults": {"duration": 99}}'
+    )
+    registry.load_presets_from_directory(tmp_path)
+    assert registry.PRESETS["small"].defaults["duration"] != 99
+    registry.load_presets_from_directory()
+
+
+def test_preset_without_resolution_clears_stale_override():
+    preset = Preset(id="t", label="t", description="", explosion_type="FUEL", simulation={"noise": 2})
+    _install(preset)
+    props = FakeProps()
+    props.resolution = 300
+    apply_preset(props, "t")
+    assert props.resolution == 0
+    registry.load_presets_from_directory()

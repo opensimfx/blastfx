@@ -30,13 +30,13 @@ Requires Blender **5.2 LTS or newer** (Mantaflow gas with adaptive domain).
 python tools/package.py        # -> blastfx_v1.zip
 ```
 
-In Blender: *Edit > Preferences > Add-ons > Install…*, pick the zip. The panel appears in the 3D Viewport sidebar (**N**) under **Blast FX**.
+In Blender: *Edit > Preferences > Add-ons > Install…*, pick the zip. The panel appears in the 3D Viewport sidebar (**N**) under **BlastFX**.
 
 The repository ships ready-made example scenes under `examples/` (`test_small`, `test_medium`, `test_large`, `test_large_event`) — open one, press **Bake Simulation**, and render.
 
 ## Quick start
 
-1. Open the **Blast FX** tab, pick an explosion type and preset (or a scale/duration directly).
+1. Open the **BlastFX** tab, pick an explosion type and preset (or a scale/duration directly).
 2. Create the blast at the 3D cursor.
 3. Tune artistic parameters (components, appearance, cinematic FX).
 4. Run a preview bake — inspect motion and silhouette.
