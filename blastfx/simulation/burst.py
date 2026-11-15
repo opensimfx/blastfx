@@ -112,6 +112,9 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         subframes=5,
         velocity_factor=numerical.particle_velocity_factor,
     )
+    # Constant injected volume across quality tiers (see sim_config).
+    flow.use_particle_size = True
+    flow.particle_size = float(numerical.burst_particle_size_cells)
     # The particle system IS the injection window: particles are seeded over
     # `emission` frames and live `lifetime` frames, so smoke stops being fed
     # once they die (verified empirically: cache sizes plateau after the last

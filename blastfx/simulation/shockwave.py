@@ -1,5 +1,6 @@
 from ..core.froude import solver_scaling
 from ..core.domain_envelope import longest_side
+from ..utils.animation import action_fcurves
 from ..utils.naming import component_name
 from .fluid import primitive_flow, configure_fluid_modifier, configure_flow, keyframe_inflow
 
@@ -29,10 +30,10 @@ def build_shockwave(context, collection, controller, config):
     _, flow = configure_fluid_modifier(obj, "FLOW")
     configure_flow(
         flow, flow_type="SMOKE", temperature=0.005,
-        density=numerical.density_scale * 1.0,
+        density=numerical.density_scale * 0.6,
         # Lift so the raised dust billows into a skirt instead of lying as a
-        # flat pancake on the ground.
-        velocity=(0.0, 0.0, scaling.flow_velocity(0.35 * physical.characteristic_velocity_mps)),
+        # flat pancake on the ground (0.35 U still read as a disc at Final).
+        velocity=(0.0, 0.0, scaling.flow_velocity(0.8 * physical.characteristic_velocity_mps)),
         # velocity_normal is in grid units (measured): convert from m/s.
         velocity_normal=scaling.flow_normal_velocity(
             profile.shock_spread_U * physical.characteristic_velocity_mps,
@@ -43,6 +44,18 @@ def build_shockwave(context, collection, controller, config):
     start = shock_start_frame(config)
     frames = max(2, int(round(plan.event_frames(profile.shock_feed_T * physical.time_unit_s))))
     keyframe_inflow(flow, start, start + frames)
+    # Raised dust sweeps outward from the fireball's edge: grow the emitter
+    # ring from inside the fireball to full size instead of stamping the
+    # whole annulus in one frame (which read as a flat disc at Final).
+    sweep = max(2, int(round(plan.event_frames(profile.shock_sweep_T * physical.time_unit_s))))
+    obj.scale = (0.45, 0.45, 1.0)
+    obj.keyframe_insert("scale", frame=start)
+    obj.scale = (1.0, 1.0, 1.0)
+    obj.keyframe_insert("scale", frame=start + sweep)
+    for fcurve in action_fcurves(obj):
+        if fcurve.data_path == "scale":
+            for kp in fcurve.keyframe_points:
+                kp.interpolation = "LINEAR"
     obj.hide_render = True
     obj.display_type = "WIRE"
     obj["blastfx_role"] = "emitter"

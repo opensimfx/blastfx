@@ -87,14 +87,14 @@ def create_explosion(context):
 
 def remove_explosion(controller):
     if not controller:
-        raise ValueError("No Blast FX controller selected.")
+        raise ValueError("No BlastFX controller selected.")
 
     collection = next(
         (c for c in controller.users_collection if c.name.startswith("Blast_")),
         None,
     )
     if collection is None:
-        raise ValueError("Blast controller is not inside a Blast FX collection.")
+        raise ValueError("Blast controller is not inside a BlastFX collection.")
 
     props = bpy.context.scene.blastfx
     invalidate_cache(props, controller["blastfx_id"])
@@ -104,7 +104,7 @@ def remove_explosion(controller):
 def rebuild_explosion(context, controller):
     """Rebuild blast from controller properties + preset + seed + version."""
     if not is_controller(controller):
-        raise ValueError("Object is not a Blast FX controller.")
+        raise ValueError("Object is not a BlastFX controller.")
 
     blast_id = controller["blastfx_id"]
     collection = next(
@@ -112,7 +112,7 @@ def rebuild_explosion(context, controller):
         None,
     )
     if collection is None:
-        raise ValueError("Controller not in a Blast FX collection.")
+        raise ValueError("Controller not in a BlastFX collection.")
 
     props = context.scene.blastfx
     plan, validation = _validated_plan(context, props)

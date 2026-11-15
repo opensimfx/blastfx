@@ -1,4 +1,4 @@
-"""Generate the Blast FX regression scenes listed in docs/DEVELOPMENT.md plan F.
+"""Generate the BlastFX regression scenes listed in docs/DEVELOPMENT.md plan F.
 
 Run with:
     /Applications/Blender.app/Contents/MacOS/Blender --background \

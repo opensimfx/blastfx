@@ -1,4 +1,4 @@
-"""Headless physics validation harness for Blast FX (plan sections A-D).
+"""Headless physics validation harness for BlastFX (plan sections A-D).
 
 Run with:
     /Applications/Blender.app/Contents/MacOS/Blender --background \

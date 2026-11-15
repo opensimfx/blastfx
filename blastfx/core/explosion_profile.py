@@ -84,14 +84,14 @@ SHADING = {
         ),
         optical_depth=8.0,
         fire_temperature_k=(1150.0, 2700.0),
-        fire_light_T=4.5,
+        fire_light_T=3.0,
     ),
     "HEAVY": ShadingConfig(
         smoke_ramp=(
-            (0.0, (0.36, 0.31, 0.26, 1.0)),
-            (0.2, (0.19, 0.16, 0.13, 1.0)),
-            (0.6, (0.075, 0.065, 0.055, 1.0)),
-            (1.0, (0.042, 0.038, 0.034, 1.0)),
+            (0.0, (0.30, 0.26, 0.22, 1.0)),
+            (0.2, (0.15, 0.13, 0.11, 1.0)),
+            (0.6, (0.06, 0.052, 0.045, 1.0)),
+            (1.0, (0.035, 0.032, 0.029, 1.0)),
         ),
         optical_depth=9.0,
         fire_temperature_k=(1150.0, 2800.0),
@@ -106,8 +106,9 @@ SHADING = {
             (1.0, (0.16, 0.15, 0.14, 1.0)),
         ),
         optical_depth=6.0,
-        fire_temperature_k=(1800.0, 6500.0),
-        fire_brightness=60.0,
+        # Preview review: 1800-6500 K at 60 kept the fireball white past 2 T.
+        fire_temperature_k=(1500.0, 5000.0),
+        fire_brightness=35.0,
         anisotropy=0.2,
         fire_light_T=2.0,
         fire_light_k=4500.0,
@@ -168,6 +169,9 @@ class ExplosionProfile:
     envelope_lateral_R: float = 4.5
     envelope_top_R: float = 7.0
     envelope_bottom_R: float = 1.5
+    # Closed domain top: the plume spreads under it like a mushroom cap at its
+    # stabilisation altitude instead of being sliced off by the open border.
+    ceiling: bool = False
 
     # Fireball burst: particles leave the emitter at burst_speed_U and seed
     # fuel for burst_lifetime_T; speed x lifetime is the fuel's reach in R.
@@ -200,6 +204,9 @@ class ExplosionProfile:
     shock_delay_T: float = 0.05
     shock_spread_U: float = 1.2
     shock_feed_T: float = 0.4
+    # Time for the raised-dust ring to sweep out to full size; matches the
+    # default feed so the ring is still emitting when it reaches full size.
+    shock_sweep_T: float = 0.4
 
     # Visible ring and camera framing (cinematic layer).
     shockwave_radius_factor: float = 3.0
@@ -257,8 +264,10 @@ PROFILES = {
     ),
     # Large conventional ground blast: hot source, buoyant column, surge.
     "LARGE": ExplosionProfile(
-        source_radius=0.5, fuel_amount=4.5, temperature=1.2, density=1.55,
-        burning_rate=0.22, flame_vorticity=0.62, flame_smoke=2.7,
+        # Preview review: burning 0.22 / fuel 4.5 kept the whole cloud glowing
+        # peach through 2 T; real large blasts go dark with pockets of fire.
+        source_radius=0.5, fuel_amount=3.5, temperature=1.2, density=1.55,
+        burning_rate=0.45, flame_vorticity=0.62, flame_smoke=2.7,
         buoyancy_density=1.3, buoyancy_heat=3.1, turbulence=1.65,
         noise_strength=1.4, noise_scale=2, flame_ignition=1.8, flow_heat=0.85,
         stem=True, ground_surge=True, burst_flip_lower=True,
@@ -273,8 +282,10 @@ PROFILES = {
     ),
     # Massive ground burst: long-burning fireball, heavy column, wide surge.
     "HEAVY": ExplosionProfile(
+        # Preview review: burning 1.2 burned this "long-burning" burst out by
+        # 2 T with pale smoke; slower burn, more soot.
         source_radius=0.5, fuel_amount=6.0, temperature=1.5, density=1.6,
-        burning_rate=1.2, flame_vorticity=0.35, flame_smoke=3.0,
+        burning_rate=0.4, flame_vorticity=0.35, flame_smoke=3.6,
         buoyancy_density=1.6, buoyancy_heat=3.6, turbulence=1.2,
         noise_strength=1.5, noise_scale=2, flame_ignition=2.0, flow_heat=1.4,
         stem=True, ground_surge=True, burst_flip_lower=True,
@@ -292,13 +303,18 @@ PROFILES = {
     # likewise (48 / 80 frames = 0.67 T / 1.12 T). The old 2.2 U stem jet is
     # cut to 0.5 U now that buoyancy works (jets band, see stem_speed_U). Shock stays near the 5-psi relation (~3.7x R).
     "NUCLEAR": ExplosionProfile(
-        source_radius=1.0, fuel_amount=5.0, temperature=1.5, density=1.6,
+        # Preview review: fuel 5.0 kept the core white-hot past 2 T (6 s).
+        source_radius=1.0, fuel_amount=3.5, temperature=1.5, density=1.6,
         burning_rate=0.22, flame_vorticity=0.35, flame_smoke=3.0,
         buoyancy_density=1.4, buoyancy_heat=3.4, turbulence=1.0,
         noise_strength=1.2, noise_scale=2, flame_ignition=2.2, flow_heat=1.3,
         stem=True, ground_surge=True, burst_flip_lower=True,
-        event_T=5.4, envelope_lateral_R=5.4, envelope_top_R=6.0, envelope_bottom_R=1.5,
-        burst_count=4000, burst_speed_U=2.6, burst_random_U=1.85,
+        # Slimmer domain (was 5.4 R lateral, 932 m): the time scale clamps at 10
+        # beyond ~400 m and buoyancy then falls short (30 % before, ~8 % now),
+        # which left the cloud squat with no rise. Less random burst spread
+        # tames the spikes.
+        event_T=5.4, envelope_lateral_R=3.5, envelope_top_R=6.0, envelope_bottom_R=1.5, ceiling=True,
+        burst_count=4000, burst_speed_U=2.6, burst_random_U=1.0,
         burst_emission_T=0.67, burst_lifetime_T=1.12,
         stem_speed_U=0.5, stem_feed_T=3.2,
         dust_spread_U=0.4, dust_lift_U=0.02, dust_feed_T=1.6, dust_ring_T=0.67,

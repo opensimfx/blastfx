@@ -55,7 +55,7 @@ def build_domain(context, collection, controller, config):
         cache_data_format="OPENVDB",
         cache_noise_format="OPENVDB",
         use_collision_border_bottom=True,
-        use_collision_border_top=False,
+        use_collision_border_top=bool(getattr(config["profile"], "ceiling", False)),
         use_collision_border_front=False,
         use_collision_border_back=False,
         use_collision_border_left=False,

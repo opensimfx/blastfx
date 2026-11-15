@@ -11,7 +11,7 @@ def _recover_caches_on_load(*_args):
     try:
         recover_caches(bpy.context)
     except Exception as exc:
-        print(f"Blast FX cache recovery skipped: {exc}")
+        print(f"BlastFX cache recovery skipped: {exc}")
 
 
 def register():

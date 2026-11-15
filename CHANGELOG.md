@@ -123,6 +123,45 @@ on bigger domains.
   noise pass and Draft and Preview use CFL 4 (`TIER_SOLVER`); Final keeps noise and
   CFL 2. Same 46 frames: 104 s, same shape and timing, smoother billows without fine
   soot detail. Full medium Preview (193 frames): 242 s, where 91 frames took 470 s.
+- Fix: Final simulated a weaker explosion than Draft. Mantaflow sizes particle fuel
+  injection in cells, so each burst particle injected ~1/27 the volume at Final and the
+  tier's 4x particle count did not make it up (small, frame 11: smoke -23%, flame -33%;
+  fire gone by 1 T at Final). Each particle now has a fixed radius in metres, shrunk as the
+  tier adds particles, so injected volume matches Draft: tiers now agree within ~4-7%.
+- Shock dust: lighter (0.6x) with more lift (0.8 U), and the emitter ring now sweeps out
+  from inside the fireball over `shock_sweep_T` instead of stamping the whole annulus in
+  one frame; the flat glowing disc under the fireball became billowing dust.
+
+### Tuning (Preview review of every preset)
+
+- Large Ground: the whole cloud glowed peach through 2 T (burning 0.22, fuel 4.5); now
+  burning 0.45, fuel 3.5, fire light 3 T, so it goes dark with pockets of fire.
+- Heavy: the "long-burning" burst burned out by 2 T with pale smoke (burning 1.2); now
+  burning 0.4, more soot, darker smoke ramp.
+- Nuclear: the domain shrinks to 3.5 R per side (was 5.4 R, 932 m), cutting the buoyancy
+  shortfall from ~37% to ~9% so the cloud rises; fuel 3.5 (the core stayed white past
+  2 T) and less random burst spread (fewer spikes). The domain top is closed for Nuclear
+  (`ceiling`), so the plume spreads under it like a cap at its stabilisation altitude
+  instead of being sliced off by the open border; fire range 1500-5000 K at brightness 35
+  (was 1800-6500 K at 60). Still open: the fireball stays bright for over 2 T and the cap
+  is flattish.
+
+### UI
+
+- Sidebar rebuilt to the shared OpenSimFX UI conventions (`docs/UI_STYLE.md`, identical in
+  all four add-ons): preset dropdown with wrapped description, large Create button, the
+  selected blast's Rebuild / Duplicate with Remove separated, then Explosion, Components,
+  Look, Cache and Bake, Readout, Diagnostics and Preset Files sub-panels.
+- Nuclear yield and Rapatronic Skin were missing from the UI; both show for Nuclear.
+- New Readout: fireball diameter, T, event length, frames, solver time scale, resolution,
+  voxels per radius, voxel size and noise, from the same plan Create uses; plan warnings
+  (buoyancy shortfall) show in Readout and Diagnostics.
+- Cache and Bake shows state, frames, a progress bar, elapsed/remaining time and failure
+  messages; Draft/Preview explain that they skip the noise pass.
+- Duration displays in seconds; "Resolution Override" is "Resolution" (0 = automatic).
+- Removed the stale "Noise is enabled for Draft quality" warning (tiers ignore it).
+- The free-text preset field and the list of preset buttons are replaced by the dropdown;
+  the unused Reference Energy field is no longer shown.
 
 ## 0.2.0-beta2 (2026-10-19)
 

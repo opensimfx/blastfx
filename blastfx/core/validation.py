@@ -36,8 +36,6 @@ def validate_props(props) -> ValidationResult:
     if props.quality == "FINAL" and props.resolution and props.resolution < 128:
         result.add_warning("Final quality with a very low resolution may produce poor results.")
 
-    if props.noise_upres > 1 and props.quality == "DRAFT":
-        result.add_warning("Noise is enabled for Draft quality.")
 
     return result
 
@@ -50,7 +48,7 @@ def validate_scene(scene) -> ValidationResult:
         result.add_error("Scene unit scale must be greater than zero.")
     elif abs(unit_scale - 1.0) > 1e-6:
         result.add_error(
-            "Scene unit scale must be 1.0 metre per Blender unit for Blast FX."
+            "Scene unit scale must be 1.0 metre per Blender unit for BlastFX."
         )
 
     fps = float(scene.render.fps) / float(scene.render.fps_base)

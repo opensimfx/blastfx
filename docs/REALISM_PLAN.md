@@ -55,7 +55,7 @@ Found during Phase A **[measured]**:
   solver time per T, which grows with size. Without that, a 40 m fireball burned out ~10×
   sooner (in T) than a 4 m one.
 
-**Phase A status (implemented, uncommitted):** with all three conversions in
+**Phase A status (committed, `38b9d61`):** with all three conversions in
 `core/froude.py`, a 4 m and a 40 m `small` blast agree within ~5–15% at Froude-scaled
 frames on plume height, lateral spread, smoke mass and flame lifetime. The old code
 differed 2–5× on the same test.
@@ -131,32 +131,51 @@ measure before and after on the same preset and tier.
 
 ---
 
-## 3. Plan (in order)
+## 3. Plan and status
 
-**Phase A — Scale correctness (biggest realism win)**
-1. Froude time scaling in `build_domain` (`time_scale = sqrt(S/S0)`, clamp 10, beta top-up
-   beyond); author all velocities at S0. Remove the nuclear 12×/14× hacks.
-2. Real-world sizes in presets; duration from diameter; explicit Shot Speed (slow-mo).
-3. Resolution from voxels-per-radius, not a fixed number.
-Acceptance: a 4 m and a 40 m blast match in domain-relative silhouette at Froude-scaled frames
-(extend `tools/physics_validation.py`); bake_benchmark shows a frame-count drop on presets.
+Commits on `realism-and-bake-speed` (see CHANGELOG for detail and measurements).
 
-**Phase B — Shading**
-4. Fire ramp/blackbody, radius-normalised density and emission, albedo floor, internal fire
-   lights. Delete the Fresnel term.
-Acceptance: side-by-side small/medium/nuclear renders at matching frames; no opaque blob and
-no see-through haze.
+| Phase | Status | Commit |
+|---|---|---|
+| A. Scale correctness: Froude time scale, `velocity_normal` and rate conversions, real-size presets, auto resolution | Done; 4 m vs 40 m agree within ~5-15% (old code 2-5x apart) | `38b9d61` |
+| B. Shading: radius-normalised smoke, blackbody fire with Kirchhoff emission, soot albedo, AgX grade, fire light | Done; 4 m and 40 m render alike | `6e4dd01` |
+| C. Cinematic layer: debris/sparks that render, refraction shockwave and haze, sound-delayed shake, relative exposure, safe compositor, R-based camera | Done | `b6e2c72` |
+| Banding: adaptive domain off by default, buoyant column | Done; clean at Preview | `1ae6ebb` |
+| D1. Tier cost: Preview without noise, CFL 4 for Draft/Preview | Done; Preview ~2.5x faster | `b58ca62` |
+| D2. Split bake (MODULAR cache: motion, then noise) | Feasible but deferred; see below | - |
+| D3. Instant tier from a downloadable CC0 VDB library | Not started | - |
 
-**Phase C — Cinematic layer**
-5. Fix exposure, glare type, compositor, heat haze (refraction), camera shake (noise, sound
-   delay), flash timing/energy, sparks, debris material/speed, fast shockwave.
+### D2 findings (Blender 5.2.3, headless tests, 2026-11-15)
 
-**Phase D — Speed workflow**
-6. MODULAR cache (data then noise); Draft render settings; then guided upres as an experiment.
-7. Optional "Instant" tier from a downloadable VDB library.
+A split bake only works as a chain of worker processes, under conditions that make it
+costly for a narrow benefit (re-baking only the noise pass after changing Noise):
 
-Retune profiles after A and B. Their current values were tuned around the scale bug and the
-missing burst velocity (see CHANGELOG).
+- Noise-only baking in a fresh process writes empty noise grids (~1.4 KB vs ~36 KB files),
+  even with the stage-1 worker's .blend reopened: the noise solver needs the base velocity
+  state, which a normal data bake does not keep on disk.
+- With `cache_resumable` on in stage 1, a second process that reopens stage 1's own .blend
+  can change `noise_scale`, keep the data and bake real noise; the main scene (ALL or
+  MODULAR, configured before the files arrived) then reads it. Resumable data is ~3x larger
+  on disk; the manual advises against it at high resolution.
+- Configuring a domain (or switching it to MODULAR) while cache files exist wipes them, so
+  Rebuild would have to stash and restore files; the stage-1 .blend must survive recovery,
+  which today deletes job folders on load; and cache identity needs separate data and noise
+  hashes.
+- A data-only MODULAR cache with noise enabled renders nothing, so "motion only" Final
+  bakes would also need the noise switched off for viewing.
+
+The Preview speed-up (no noise, CFL 4) delivered most of the iteration-time win; D2 stays
+deferred unless re-baking noise becomes a frequent workflow.
+
+Open items:
+
+- Profiles need retuning by eye at Preview/Final; values were set during A-C at Draft.
+- Nuclear exceeds the time-scale limit (10): buoyancy ~30% short, warned in the UI.
+- Faint stripes next to the column emitter at Draft (cone only 2-3 cells wide); gone at
+  Preview.
+- Under AgX the fire is somewhat pastel; Filmic shows the fuller colour.
+- Camera FX still makes its own camera the scene camera.
+- `core/validation.py` still warns about noise on Draft, which tiers now ignore.
 
 ---
 
