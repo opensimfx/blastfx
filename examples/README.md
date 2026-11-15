@@ -1,4 +1,4 @@
-# Blast FX example scenes
+# BlastFX example scenes
 
 Regression scenes for the physics validation plan (section F) in
 `docs/DEVELOPMENT.md`. Each file is a
@@ -12,7 +12,7 @@ Regenerate with:
 /Applications/Blender.app/Contents/MacOS/Blender --background --python tools/make_examples.py
 ```
 
-Bake any scene by opening it and pressing **Bake Simulation** in the Blast FX
+Bake any scene by opening it and pressing **Bake Simulation** in the BlastFX
 panel (or `bpy.ops.blastfx.bake()`), then scrub the timeline to review.
 
 ## Scenes
@@ -37,4 +37,4 @@ panel (or `bpy.ops.blastfx.bake()`), then scrub the timeline to review.
     "import bpy; bpy.ops.blastfx.bake()"
 ```
 
-Bakes run in a background worker process; poll progress from the Blast FX panel.
+Bakes run in a background worker process; poll progress from the BlastFX panel.

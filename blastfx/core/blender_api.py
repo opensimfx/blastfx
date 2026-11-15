@@ -1,4 +1,4 @@
-"""Runtime Blender 5.2 API self-test for Blast FX."""
+"""Runtime Blender 5.2 API self-test for BlastFX."""
 import bpy
 import bmesh
 

@@ -1,9 +1,9 @@
 bl_info = {
-    "name": "Blast FX",
+    "name": "BlastFX",
     "author": "arsh342",
     "version": (0, 2, 0),
     "blender": (5, 2, 0),
-    "location": "3D Viewport > Sidebar > Blast FX",
+    "location": "3D Viewport > Sidebar > BlastFX",
     "description": "Procedural cinematic explosion authoring system",
     "category": "Physics",
 }

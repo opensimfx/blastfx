@@ -5,7 +5,7 @@ Usage from Blender's Text Editor: Run Script.
 import bpy
 from blastfx.core.blender_api import runtime_self_test
 
-print("Blast FX Blender version:", bpy.app.version_string)
+print("BlastFX Blender version:", bpy.app.version_string)
 errors = runtime_self_test()
 if errors:
     print("BLAST FX API AUDIT: FAIL")

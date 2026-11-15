@@ -20,7 +20,7 @@ def build_domain_envelope(physical, profile) -> dict:
         "size": (lateral * 2.0, lateral * 2.0, max_z - min_z),
         "center": (0.0, 0.0, (min_z + max_z) * 0.5),
         "adaptive_domain_enabled": False,
-        "boundary_top_open": True,
+        "boundary_top_open": not bool(getattr(profile, "ceiling", False)),
         "boundary_sides_open": True,
     }
 

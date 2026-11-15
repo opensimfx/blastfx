@@ -11,7 +11,7 @@ __pycache__/
 *.blend1
 *.blend2
 
-# Blast FX generated output
+# BlastFX generated output
 dist/
 blastfx_cache/
 blastfx_visual_validation/

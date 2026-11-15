@@ -74,6 +74,7 @@ class BLASTFX_Props(PropertyGroup):
         default=8.0,
         min=0.0,
         max=120.0,
+        unit="TIME_ABSOLUTE",
         description="Real event time the shot covers, in seconds (before slow motion); converted to frames using scene FPS and playback speed. 0 = automatic: the explosion type's natural length at this size",
     )
 
@@ -107,7 +108,7 @@ class BLASTFX_Props(PropertyGroup):
     )
 
     resolution: IntProperty(
-        name="Resolution Override",
+        name="Resolution",
         default=0,
         min=0,
         max=2048,

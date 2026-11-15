@@ -1,4 +1,4 @@
-"""Blender background process for one Blast FX Mantaflow bake."""
+"""Blender background process for one BlastFX Mantaflow bake."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ def _write_metrics(request: dict, domain_settings, cache_root: Path, bake_starte
         "cache_bytes": sum(p.stat().st_size for p in cache_root.rglob("*") if p.is_file()),
     }
     _atomic_json(cache_root / METRICS_NAME, payload)
-    print("Blast FX worker metrics:", json.dumps(payload), flush=True)
+    print("BlastFX worker metrics:", json.dumps(payload), flush=True)
 
 
 def main() -> int:
@@ -137,7 +137,7 @@ def main() -> int:
     request = json.loads(Path(request_path).read_text(encoding="utf-8"))
     started = time.monotonic()
     print(
-        "Blast FX bake worker: "
+        "BlastFX bake worker: "
         f"job_id={request['job_id']} blast_id={request['blast_id']} "
         f"generation={request['generation']} "
         f"frames={request['frame_start']}-{request['frame_end']} "
@@ -159,7 +159,7 @@ def main() -> int:
         None,
     )
     if domain is None:
-        raise RuntimeError("Worker could not find the requested Blast FX domain.")
+        raise RuntimeError("Worker could not find the requested BlastFX domain.")
     # Blender may rewrite relative cache paths when the temporary snapshot is
     # opened from the worker. The request path is the authoritative shared
     # generation and must be restored before Mantaflow starts.
@@ -172,7 +172,7 @@ def main() -> int:
     authoritative = Path(request["cache_path"]).resolve()
     configured = Path(bpy.path.abspath(domain_settings.cache_directory)).resolve()
     print(
-        "Blast FX worker cache contract:",
+        "BlastFX worker cache contract:",
         f"expected={authoritative}",
         f"configured_before={configured}",
         f"blend={bpy.data.filepath}",
@@ -201,7 +201,7 @@ def main() -> int:
         raise OSError(f"Worker cache directory probe failed: {authoritative}")
     probe.unlink()
     print(
-        "Blast FX worker cache resolved:",
+        "BlastFX worker cache resolved:",
         f"cache={authoritative}",
         f"realpath={resolved}",
         f"format={domain_settings.cache_data_format}",
@@ -231,7 +231,7 @@ def main() -> int:
     _write_status(request, "VERIFYING_CACHE", started, "Verifying cache output.")
     inspection = _inspect_cache_tree(authoritative, domain_settings.cache_data_format)
     print(
-        "Blast FX worker cache inspection:",
+        "BlastFX worker cache inspection:",
         f"directories={len(inspection['directories'])}",
         f"files={len(inspection['files'])}",
         f"volumetric={inspection['volumetric_count']}",

@@ -1,4 +1,4 @@
-"""Render, world, and camera helpers for Blast FX scenes."""
+"""Render, world, and camera helpers for BlastFX scenes."""
 
 import bpy
 

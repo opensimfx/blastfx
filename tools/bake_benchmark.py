@@ -1,4 +1,4 @@
-"""Time a Blast FX bake so cost changes can be measured, not guessed.
+"""Time a BlastFX bake so cost changes can be measured, not guessed.
 
 Run in desktop Blender (Mantaflow needs the full build, not the bpy wheel):
 

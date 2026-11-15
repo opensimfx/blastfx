@@ -168,3 +168,14 @@ def test_zero_duration_means_natural_event_length():
 def test_adaptive_domain_is_off_by_default():
     # Its moving box clipped rising smoke into horizontal bands (measured).
     assert build_simulation_config(_physical(), "FINAL", 0, 2, 7).use_adaptive_domain is False
+
+
+def test_burst_injection_volume_is_tier_independent():
+    large = profile_for("LARGE")
+    volumes = []
+    for quality in ("DRAFT", "PREVIEW", "FINAL"):
+        config = build_simulation_config(_physical(scale=20.0), quality, 0, 1, 7, profile=large)
+        radius_m = config.burst_particle_size_cells * config.voxel_size_m
+        volumes.append(config.burst_count * radius_m ** 3)
+    assert volumes[1] == pytest.approx(volumes[0], rel=1e-6)
+    assert volumes[2] == pytest.approx(volumes[0], rel=1e-6)

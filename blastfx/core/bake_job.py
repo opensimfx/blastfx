@@ -141,7 +141,7 @@ def start_batch_bake(context, controllers) -> dict:
     machinery. Blasts whose cache already validates as BAKED are skipped.
     """
     if _ACTIVE_JOB is not None:
-        raise RuntimeError("A Blast FX bake is already running.")
+        raise RuntimeError("A BlastFX bake is already running.")
     props = context.scene.blastfx
     queued = 0
     skipped = []
@@ -172,11 +172,11 @@ def _start_next_queued_job() -> bool:
             return False
         controller = bpy.data.objects.get(f"BlastController_{blast_id}")
         if controller is None:
-            print(f"Blast FX bake queue: {blast_id} no longer exists, skipping.")
+            print(f"BlastFX bake queue: {blast_id} no longer exists, skipping.")
             continue
         domain = _domain_for(controller)
         if domain is None:
-            print(f"Blast FX bake queue: {blast_id} has no domain, skipping.")
+            print(f"BlastFX bake queue: {blast_id} has no domain, skipping.")
             continue
         try:
             if cache_status(
@@ -185,7 +185,7 @@ def _start_next_queued_job() -> bool:
                 domain,
                 controller.get("blastfx_physics_state"),
             ) == "BAKED":
-                print(f"Blast FX bake queue: {blast_id} is already baked, skipping.")
+                print(f"BlastFX bake queue: {blast_id} is already baked, skipping.")
                 continue
         except Exception:
             pass  # unreadable cache state still deserves a bake attempt
@@ -194,7 +194,7 @@ def _start_next_queued_job() -> bool:
             return True
         except Exception as exc:
             # One broken blast must not stall the batch; keep draining.
-            print(f"Blast FX bake queue: starting bake for {blast_id} failed: {exc}")
+            print(f"BlastFX bake queue: starting bake for {blast_id} failed: {exc}")
 
 
 def job_status(controller) -> dict | None:
@@ -213,7 +213,7 @@ def request_cancel(controller) -> None:
         raise RuntimeError("No active bake exists for this blast.")
     drained = _QUEUE.clear()
     if drained:
-        print(f"Blast FX bake queue: cancelled {drained} queued bake(s).")
+        print(f"BlastFX bake queue: cancelled {drained} queued bake(s).")
     job["cancel_path"].write_text("cancel requested\n", encoding="utf-8")
     _write_status(job, "CANCEL_REQUESTED", "Cancellation requested by user.")
 
@@ -232,7 +232,7 @@ def _find_domain(collection, blast_id: str):
 def start(context, controller, domain_obj) -> dict:
     global _ACTIVE_JOB
     if _ACTIVE_JOB is not None:
-        raise RuntimeError("A Blast FX bake is already running.")
+        raise RuntimeError("A BlastFX bake is already running.")
 
     props = context.scene.blastfx
     blast_id = controller["blastfx_id"]
@@ -255,7 +255,7 @@ def start(context, controller, domain_obj) -> dict:
     domain_settings.cache_directory = str(absolute_cache)
     bpy.context.preferences.filepaths.use_relative_paths = False
     print(
-        "Blast FX cache contract:",
+        "BlastFX cache contract:",
         f"generation={generation_path.name}",
         f"cache={absolute_cache}",
         f"realpath={os.path.realpath(absolute_cache)}",
@@ -443,7 +443,7 @@ def _poll():
         cache_format = domain.modifiers.get("BlastFX Fluid").domain_settings.cache_data_format
         inspection = inspect_mantaflow_cache_tree(cache_path, cache_format)
         print(
-            "Blast FX main cache inspection:",
+            "BlastFX main cache inspection:",
             f"cache={cache_path.resolve()}",
             f"format={cache_format}",
             f"volumetric={inspection['volumetric_count']}",
@@ -479,7 +479,7 @@ def _poll():
         except RuntimeError:
             has_partial_output = False
         _finish(job, controller, "PARTIAL" if has_partial_output else "FAILED", str(exc))
-        print(f"Blast FX bake worker validation failed:\n{traceback.format_exc()}")
+        print(f"BlastFX bake worker validation failed:\n{traceback.format_exc()}")
         _redraw()
         _start_next_queued_job()
         return POLL_INTERVAL if _ACTIVE_JOB is not None else None

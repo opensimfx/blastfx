@@ -1,8 +1,8 @@
-# Blast FX Architecture
+# BlastFX Architecture
 
 ## 1. System boundary
 
-Blast FX sits between the artist and Blender's simulation/rendering systems.
+BlastFX sits between the artist and Blender's simulation/rendering systems.
 
 ```text
 Artist
@@ -208,11 +208,11 @@ Unexpected programming errors should still raise.
 
 ## 9. Security / scene safety
 
-Blast FX should only mutate:
+BlastFX should only mutate:
 
 - its own generated collection
-- explicitly selected Blast FX controllers
-- scene properties belonging to Blast FX
+- explicitly selected BlastFX controllers
+- scene properties belonging to BlastFX
 
 Never delete arbitrary selected objects as part of a rebuild.
 
@@ -422,7 +422,7 @@ unit scale, derived physics, and numerical Mantaflow configuration. Cosmetic
 camera and appearance-only controls are excluded.
 
 Mantaflow's public Blender 5.2 RNA does not expose a verified general-purpose
-simulation seed used by this pipeline. The Blast FX seed is therefore part of
+simulation seed used by this pipeline. The BlastFX seed is therefore part of
 cache identity and procedural configuration, but deterministic solver noise
 must remain a Blender-runtime validation item rather than being claimed from a
 nonexistent RNA property.
@@ -440,7 +440,7 @@ Blender 5.2.1 runtime validation confirms the domain properties used by this
 pipeline: `use_adaptive_domain`, `adapt_threshold`, `adapt_margin`,
 `use_collision_border_bottom`, and the top/side collision-border properties.
 Adaptive mode changes the active gas region inside a finite mesh; it does not
-remove a finite top boundary. Blast FX therefore computes a deterministic
+remove a finite top boundary. BlastFX therefore computes a deterministic
 pre-bake envelope from the existing derived radius, velocity, gravity,
 buoyancy, timeline, and numerical voxel size. The top and lateral borders are
 open and the bottom border remains closed. Envelope bounds and boundary mode

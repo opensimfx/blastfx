@@ -1,8 +1,8 @@
-# Blast FX Physics
+# BlastFX Physics
 
 ## Objective
 
-Blast FX produces visually credible explosions by deriving secondary effects from a coherent physical parameter model rather than independently animating every visual element.
+BlastFX produces visually credible explosions by deriving secondary effects from a coherent physical parameter model rather than independently animating every visual element.
 
 The add-on is a **visual simulation system for Blender**. It is not an engineering tool for predicting real explosive effects, weapon performance, or real-world blast damage.
 
@@ -164,7 +164,7 @@ Every major quantity should have an identified source, sink, or transfer.
 
 ## Realism policy
 
-Blast FX uses a hierarchy of truth.
+BlastFX uses a hierarchy of truth.
 
 1. **Physical truth** — use actual physical units and relationships wherever Blender's simulation stack supports them.
 2. **Solver truth** — respect what Mantaflow actually solves. Do not describe a visual proxy as a full physical solution.
@@ -211,7 +211,7 @@ This makes a result reproducible and debuggable.
 
 ## Preset profiles
 
-Blast FX uses a deterministic physically informed profile for each explosion type. A profile is simulation data, not a claim of engineering-scale physical truth. Its values control source topology, combustion, buoyancy, smoke persistence, timing offsets, and camera framing.
+BlastFX uses a deterministic physically informed profile for each explosion type. A profile is simulation data, not a claim of engineering-scale physical truth. Its values control source topology, combustion, buoyancy, smoke persistence, timing offsets, and camera framing.
 
 - **Small Blast** uses a compact source, short emission, strong outward velocity, limited turbulence, and short-lived secondary effects.
 - **Fuel / Vehicle** uses a larger fuel-rich source, longer emission, lower burning rate, rolling turbulence, and persistent soot.

@@ -42,6 +42,8 @@ class SimulationConfig:
     burst_random_velocity: float
     # FluidFlowSettings.velocity_factor for particle-sourced flows.
     particle_velocity_factor: float = 1.0
+    # FluidFlowSettings.particle_size for the burst, in simulation cells.
+    burst_particle_size_cells: float = 1.0
     playback_speed: float = 1.0
     # Fraction of the Froude buoyancy the RNA limit (|beta| <= 5) dropped.
     buoyancy_shortfall: float = 0.0
@@ -138,6 +140,16 @@ def build_simulation_config(
     # Smoke fades over the profile's fade time (in T, so it scales with the
     # blast, not with the shot length). Dissolve runs per solver step, so
     # the frame count is scaled by the time scale to stay in scene frames.
+    # Burst fuel injection: Mantaflow sizes particle emission in cells, so a
+    # fixed size injected ~1/27 the volume per particle at Final vs Draft and
+    # Final burned out sooner (measured: flame -33 %, smoke -23 % at the same
+    # frame). Hold each particle's radius in metres, shrinking it as the tier
+    # adds particles, so total injected volume matches Draft (the tuned look).
+    burst_count = max(200, int(round(profile.burst_count * burst_quality_factor)))
+    voxel_size = domain_size / domain_resolution
+    draft_radius_m = radius / VOXELS_PER_RADIUS["DRAFT"]
+    particle_radius_m = draft_radius_m * (profile.burst_count / burst_count) ** (1.0 / 3.0)
+    burst_particle_size_cells = max(0.1, particle_radius_m / voxel_size)
     dissolve_scene_frames = max(
         12.0, scaling.scene_frames(profile.smoke_fade_seconds(derived.time_unit_s), fps)
     )
@@ -146,7 +158,7 @@ def build_simulation_config(
         # Draft and Preview skip the noise pass: it doubles bake time and disk
         # and adds only fine detail, which those tiers are not for.
         noise_upres=max(1, min(8, int(noise))) if tier["noise"] else 1,
-        voxel_size_m=domain_size / domain_resolution,
+        voxel_size_m=voxel_size,
         characteristic_velocity_mps=velocity_unit,
         time_scale_multiplier=scaling.time_scale,
         # Expert ceiling for vorticity is 0.2 (froth above it); artist
@@ -169,10 +181,11 @@ def build_simulation_config(
         temperature_scale=max(0.1, min(10.0, float(fire_temperature) * profile.temperature)),
         density_scale=max(0.1, min(10.0, float(smoke_density) * profile.density)),
         seed=int(seed),
-        burst_count=max(200, int(round(profile.burst_count * burst_quality_factor))),
+        burst_count=burst_count,
         burst_normal_velocity=scaling.scene_velocity(profile.burst_speed_U * velocity_unit),
         burst_random_velocity=scaling.scene_velocity(profile.burst_random_U * velocity_unit),
         particle_velocity_factor=scaling.particle_velocity_factor,
+        burst_particle_size_cells=burst_particle_size_cells,
         playback_speed=scaling.playback_speed,
         buoyancy_shortfall=round(scaling.buoyancy_shortfall(profile.buoyancy_heat), 4),
         cfl_condition=tier["cfl"],
