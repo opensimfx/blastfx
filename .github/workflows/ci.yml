@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest
+      - run: python -m pytest -q
+      - name: Presets doc is up to date
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python tools/gen_preset_docs.py
+          git diff --exit-code docs/PRESETS.md
+
+  blender:
+    name: Blender ${{ matrix.blender }} (Linux)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        blender: ["5.2.3", "5.2.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries for headless Blender
+        run: sudo apt-get update && sudo apt-get install -y libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1
+      - name: Download Blender
+        run: |
+          curl -sSL -o blender.tar.xz "https://download.blender.org/release/Blender5.2/blender-${{ matrix.blender }}-linux-x64.tar.xz"
+          tar -xf blender.tar.xz
+          echo "BLENDER=$PWD/blender-${{ matrix.blender }}-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Build and validate the extension zip
+        run: |
+          python3 tools/build_extension.py
+          "$BLENDER" --command extension validate dist/blastfx-*.zip
+      - name: Mantaflow bake and render smoke test
+        run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/blender_runtime_smoke_test.py'
+      - name: Physics wiring checks
+        run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/physics_validation.py'

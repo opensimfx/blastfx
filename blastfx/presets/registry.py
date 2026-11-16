@@ -101,18 +101,48 @@ def _builtin_presets() -> Dict[str, Preset]:
     }
 
 
+# Saved presets. Installed as an extension the package is
+# ``bl_ext.<repo>.blastfx`` and presets go to the add-on's user data folder
+# (bpy.utils.extension_path_user): writable, kept across updates and outside
+# the extension's own files, as Blender's extension rules require. Run from
+# source (tests, development) they stay in the repository's presets/ folder.
+_PACKAGE = (__package__ or "blastfx").rsplit(".", 1)[0]
+# 0.2 and 0.3 saved presets next to the add-on folder (inside Blender's
+# extension repository); they are still loaded so nobody loses one.
+_LEGACY_PRESET_DIR = Path(__file__).parent.parent.parent / "presets"
+
+
+def _installed() -> bool:
+    return _PACKAGE.startswith("bl_ext.")
+
+
+def user_preset_dir() -> Path:
+    """Folder that Save as Preset writes to and the preset menu reads from."""
+    if _installed():
+        try:
+            import bpy
+
+            return Path(bpy.utils.extension_path_user(_PACKAGE, path="presets", create=True))
+        except Exception as exc:  # e.g. imported before Blender is ready
+            print(f"[BlastFX] No user preset folder ({exc}); saved presets are unavailable this session.")
+    return _LEGACY_PRESET_DIR
+
+
+def _preset_dirs():
+    dirs = [user_preset_dir()]
+    if _installed() and _LEGACY_PRESET_DIR.exists() and _LEGACY_PRESET_DIR not in dirs:
+        dirs.append(_LEGACY_PRESET_DIR)
+    return dirs
+
+
 def load_presets_from_directory(preset_dir: Optional[Path] = None):
-    """Load presets from JSON files in the preset directory."""
+    """Load factory presets plus saved JSON presets (``preset_dir``, or the user folders)."""
     global PRESETS
     PRESETS = _builtin_presets()
+    factory = set(PRESETS)
 
-    if preset_dir is None:
-        preset_dir = Path(__file__).parent.parent.parent / "presets"
-
-    if not preset_dir.exists():
-        return
-
-    for json_file in preset_dir.glob("*.json"):
+    dirs = [preset_dir] if preset_dir is not None else _preset_dirs()
+    for json_file in (f for d in dirs if d.exists() for f in sorted(d.glob("*.json"))):
         try:
             with open(json_file, "r") as f:
                 data = json.load(f)
@@ -126,12 +156,13 @@ def load_presets_from_directory(preset_dir: Optional[Path] = None):
                 components=data.get("components", {}),
                 simulation=data.get("simulation", {}),
             )
-            if preset.id in PRESETS:
+            if preset.id in factory:
                 # Factory presets win: a stale JSON copy (e.g. the old
                 # 24 s large_ground.json) must not silently replace them.
                 print(f"[BlastFX] Ignoring {json_file.name}: '{preset.id}' is a factory preset id")
                 continue
-            PRESETS[preset.id] = preset
+            # The first folder wins: the user folder over the legacy one.
+            PRESETS.setdefault(preset.id, preset)
         except Exception as e:
             print(f"[BlastFX] Failed to load preset {json_file}: {e}")
 
@@ -139,7 +170,7 @@ def load_presets_from_directory(preset_dir: Optional[Path] = None):
 def save_preset_to_json(preset: Preset, preset_dir: Optional[Path] = None):
     """Save a preset to a JSON file."""
     if preset_dir is None:
-        preset_dir = Path(__file__).parent.parent.parent / "presets"
+        preset_dir = user_preset_dir()
 
     preset_dir.mkdir(parents=True, exist_ok=True)
 

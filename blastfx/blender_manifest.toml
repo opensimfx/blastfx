@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "blastfx"
-version = "0.3.0"
+version = "1.0.0"
 name = "BlastFX"
 tagline = "Procedural cinematic explosion authoring system"
 maintainer = "arsh342 <arsh342@users.noreply.github.com>"

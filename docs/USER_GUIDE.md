@@ -42,9 +42,10 @@ places a copy with the same settings beside it; **Remove Blast** deletes its col
 ### Components
 
 Simulation parts: **Fireball**, **Rising Column**, **Ground Surge** (dust), **Shockwave** (dust ring),
-**Debris**, and **Rapatronic Skin** for Nuclear. Cinematic parts: **Fire Light**, **Camera FX** (sound-delayed
-shake on a generated camera), **Exposure & Bloom** and **Heat Distortion**. Camera FX makes its camera the
-scene camera; turn it off to keep yours.
+**Debris**, and **Rapatronic Skin** for Nuclear. Cinematic parts: **Fire Light**, **Camera FX** (a camera framed
+on the blast, with a shake that arrives with the sound), **Exposure & Bloom** and **Heat Distortion**. Your own
+scene camera stays active: the BlastFX camera is added beside it. Turn on **Use BlastFX Camera** to render
+through it; removing the blast gives your camera back. A scene with no camera uses the BlastFX one.
 
 ### Look
 
@@ -75,13 +76,14 @@ than real.
 
 ### Preset Files
 
-**Save as Preset** stores the current settings as a JSON preset you can pick from the menu later.
+**Save as Preset** stores the current settings as a JSON preset in the add-on's user data folder (kept across
+updates) and adds it to the menu at once.
 See [PRESETS.md](PRESETS.md) for the factory presets.
 
 ## Tips
 
-- Bake in **Draft** first. A Final bake of a large blast can take a long time; Draft and Preview are for
-  deciding whether it is worth it.
+- Bake in **Draft** first. A Final bake of a large blast can take hours (Heavy: about 3.5 h on an Apple M4 CPU,
+  Small: 14 min); Draft and Preview are for deciding whether it is worth it.
 - Bigger blasts are slower in real time: a 170 m nuclear fireball takes about 3 s per time unit T, a 4 m
   charge 0.45 s. Use Playback Speed for slow motion rather than stretching Duration.
 - Under Blender's default AgX view the fire is graded to keep its colour; Filmic shows the raw blackbody colour.

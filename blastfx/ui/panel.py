@@ -185,11 +185,15 @@ class BLASTFX_PT_components(_Base, Panel):
         col = layout.column(heading="Cinematic", align=True)
         col.prop(props, "use_flash")
         col.prop(props, "use_camera_fx")
+        sub = col.row()
+        sub.active = props.use_camera_fx
+        sub.prop(props, "camera_fx_active")
         col.prop(props, "use_exposure")
         col.prop(props, "use_heat_distortion")
         camera = context.scene.camera
-        if props.use_camera_fx and camera is not None and camera.get("blastfx_generated"):
-            layout.label(text=f"Scene camera: {camera.name}", icon="CAMERA_DATA")
+        if props.use_camera_fx and camera is not None:
+            owner = "BlastFX" if camera.get("blastfx_generated") else "yours"
+            layout.label(text=f"Scene camera: {camera.name} ({owner})", icon="CAMERA_DATA")
 
 
 class BLASTFX_PT_look(_Sub, Panel):

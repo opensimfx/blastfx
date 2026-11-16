@@ -19,6 +19,8 @@ import bpy
 
 from .cache import (
     active_cache_path,
+    prepare_cache,
+    project_cache_root,
     clear_baked_marker,
     inspect_mantaflow_cache_tree,
     mark_baked,
@@ -27,6 +29,7 @@ from .cache import (
 )
 from .bake_queue import BakeQueue
 from ..simulation.cache import validate_bake_setup
+from .cache_layout import GENERATION_MARKER
 
 
 POLL_INTERVAL = 0.4
@@ -229,6 +232,29 @@ def _find_domain(collection, blast_id: str):
     )
 
 
+def follow_cache_root(props, controller, domain_obj) -> None:
+    """Point the domain at the cache folder that belongs to the file as it is now.
+
+    An unsaved file caches under Blender's temp folder; once it is saved the
+    cache root is next to the .blend, where Create never prepared a
+    generation, and Bake failed ("Blast cache has no active generation").
+    Nothing has been baked at the new root, so a fresh generation is safe.
+    """
+    blast_id = controller["blastfx_id"]
+    settings = (domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid")).domain_settings
+    root = project_cache_root(props) / blast_id
+    if (root / GENERATION_MARKER).exists():
+        settings.cache_directory = str(active_cache_path(props, blast_id))
+        return
+    settings.cache_directory = str(prepare_cache(
+        props,
+        blast_id,
+        state_hash=controller.get("blastfx_physics_state", ""),
+        frame_start=int(settings.cache_frame_start),
+        frame_end=int(settings.cache_frame_end),
+    ))
+
+
 def start(context, controller, domain_obj) -> dict:
     global _ACTIVE_JOB
     if _ACTIVE_JOB is not None:
@@ -236,6 +262,7 @@ def start(context, controller, domain_obj) -> dict:
 
     props = context.scene.blastfx
     blast_id = controller["blastfx_id"]
+    follow_cache_root(props, controller, domain_obj)
     validate_bake_setup(context, domain_obj)
     generation_path = active_cache_path(props, blast_id)
     modifier = domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid")
@@ -342,6 +369,34 @@ def start(context, controller, domain_obj) -> dict:
     if not bpy.app.timers.is_registered(_poll):
         bpy.app.timers.register(_poll, first_interval=POLL_INTERVAL)
     return job
+
+
+def shutdown() -> None:
+    """Stop polling and the running worker when the add-on is disabled or updated.
+
+    Without this the poll timer kept firing into an unloaded module and the
+    background Blender process kept baking with nothing to collect its result.
+    The interrupted generation is left incomplete, so cache recovery treats it
+    as not baked on the next load.
+    """
+    global _ACTIVE_JOB
+    if bpy.app.timers.is_registered(_poll):
+        bpy.app.timers.unregister(_poll)
+    _QUEUE.clear()
+    job, _ACTIVE_JOB = _ACTIVE_JOB, None
+    if job is None:
+        return
+    process = job.get("process")
+    if process is not None and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except Exception:
+            process.kill()
+    try:
+        _write_status(job, "CANCELLED", "Bake stopped: BlastFX was disabled.")
+    except Exception:
+        pass
 
 
 def _finish(job, controller, state: str, message: str, **extra) -> None:

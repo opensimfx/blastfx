@@ -67,12 +67,13 @@ Verified on **desktop Blender 5.2.3 LTS, macOS arm64**:
   only registered properties and operators.
 - Bakes and renders reviewed at Draft and Preview for every preset, and at Final for consistency with Draft
   (flame and smoke within 4-7%); measurements are in [docs/VALIDATION.md](docs/VALIDATION.md).
+- Final-quality bakes of all seven presets at their full size bake and render with no errors, on an Apple M4
+  CPU: 14 min (Small) to about 3.5 h (Heavy). Times per preset are in docs/VALIDATION.md.
 - The built zip passes Blender's extension validator and installs, enables and creates a blast in a clean profile.
 
 **Not verified** - treat as unknown:
 
 - Blender versions other than 5.2.3; Windows and Linux; GPU Cycles; EEVEE.
-- Final-quality bakes of every preset at their full size (they take hours on a laptop CPU).
 - Blasts larger than ~400 m: the solver's time-scale limit makes them rise a little slower than real (the panel
   warns, the Nuclear presets are ~9% short).
 - Headless batch workflows outside the add-on's own background worker.

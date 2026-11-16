@@ -181,8 +181,27 @@ Open items:
 - Faint stripes next to the column emitter at Draft (cone only 2-3 cells wide); gone at
   Preview.
 - Under AgX the fire is somewhat pastel; Filmic shows the fuller colour.
-- Camera FX still makes its own camera the scene camera.
-- `core/validation.py` still warns about noise on Draft, which tiers now ignore.
+
+### Final bakes of every preset (Blender 5.2.3, 2026-11-16)
+
+Every factory preset baked at Final quality at its full size, then rendered with Cycles at 25% and 85% of the
+shot **[measured]**. Desktop Blender 5.2.3, `-b --factory-startup`, Apple M4 with 16 GB of memory, CPU only,
+one bake at a time.
+
+| Preset | Fireball R | Domain (m) | Resolution | Frames | Bake time |
+|---|---|---|---|---|---|
+| Small | 2 m | 16 x 16 x 14 | 192 | 169 | 14 min |
+| Medium | 5 m | 45 x 45 x 43 | 216 | 193 | 64 min |
+| Large | 10 m | 90 x 90 x 85 | 216 | 217 | 66 min |
+| Large Ground | 20 m | 200 x 200 x 220 | 264 | 241 | 2 h 9 min |
+| Heavy | 40 m | 440 x 440 x 480 | 288 | 289 | 3 h 24 min |
+| Nuclear Airburst | 86 m | 604 x 604 x 647 | 180 | 337 | 39 min |
+| Nuclear Ground Burst | 86 m | 604 x 604 x 647 | 180 | 385 | 49 min |
+
+All seven baked and rendered with no errors, and each shows the same event as its Draft bake: same burst, column,
+ground surge and cap timing. Smoke from Small has mostly dispersed by 85% of the shot at both Draft and Final.
+Heavy's bake is the longest; a 288-resolution domain on a laptop CPU takes a few hours, so bake it overnight or
+use Preview (no noise pass) to judge the shot first.
 
 ---
 

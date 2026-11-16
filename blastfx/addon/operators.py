@@ -3,6 +3,7 @@ from bpy.types import Operator
 
 from ..core.explosion import create_explosion, remove_explosion, rebuild_explosion
 from ..presets.apply import apply_preset, save_current_as_preset
+from ..presets.registry import load_presets_from_directory
 from ..core.validation import validate_props, validate_scene
 from ..core.blender_api import runtime_self_test
 from ..simulation.cache import free, validate_bake_setup
@@ -10,6 +11,7 @@ from ..core.bake_job import (
     active_job,
     request_cancel,
     start as start_bake_job,
+    follow_cache_root,
     start_batch_bake,
 )
 
@@ -143,6 +145,7 @@ class BLASTFX_OT_bake(Operator):
             if not mod:
                 self.report({"ERROR"}, "No fluid modifier on domain.")
                 return {"CANCELLED"}
+            follow_cache_root(context.scene.blastfx, controller, domain_obj)
             validate_bake_setup(context, domain_obj)
             start_bake_job(context, controller, domain_obj)
         except Exception as exc:

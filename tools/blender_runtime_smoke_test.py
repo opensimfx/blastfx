@@ -153,7 +153,7 @@ def run():
         render_path = Path(scene.render.filepath)
         _assert(render_path.exists(), "Smoke-test render was not written")
         _validate_saved_render(render_path)
-        print("BLAST FX BLENDER 5.2 SMOKE TEST: PASS")
+        print("BLASTFX BLENDER 5.2 SMOKE TEST: PASS")
     finally:
         if domain_obj and domain_obj.modifiers:
             try:

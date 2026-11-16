@@ -55,8 +55,8 @@ def main() -> int:
         "|---|---|---|---|---|---|---|---|---|",
     ]
     lines += [row(p) for p in presets]
-    lines += ["", "Saved presets: **Preset Files > Save as Preset** writes your settings as JSON to `presets/` next to the "
-              "add-on folder (see `presets/README.md` in the repository); a saved preset cannot reuse a factory id.", ""]
+    lines += ["", "Saved presets: **Preset Files > Save as Preset** writes your settings as JSON to the add-on's user "
+              "data folder, kept across updates; a saved preset cannot reuse a factory id.", ""]
     out = ROOT / "docs" / "PRESETS.md"
     out.write_text("\n".join(lines))
     print(f"wrote {out.relative_to(ROOT)}")

@@ -1,3 +1,4 @@
+from .version import VERSION
 import uuid
 
 CONTROLLER_TAG = "blastfx_controller"
@@ -10,7 +11,7 @@ def new_blast_id() -> str:
 def tag_controller(obj, props, blast_id: str):
     obj[CONTROLLER_TAG] = True
     obj["blastfx_id"] = blast_id
-    obj["blastfx_version"] = "0.3.0"
+    obj["blastfx_version"] = VERSION
     obj["blastfx_type"] = props.explosion_type
     obj["blastfx_preset"] = props.preset_id
     obj["blastfx_seed"] = props.seed

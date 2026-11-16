@@ -1,12 +1,4 @@
-bl_info = {
-    "name": "BlastFX",
-    "author": "arsh342",
-    "version": (0, 3, 0),
-    "blender": (5, 2, 0),
-    "location": "3D Viewport > Sidebar > BlastFX",
-    "description": "Procedural cinematic explosion authoring system",
-    "category": "Physics",
-}
+"""BlastFX: procedural cinematic explosions for Blender. Metadata lives in blender_manifest.toml."""
 
 
 def register():

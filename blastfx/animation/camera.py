@@ -61,13 +61,35 @@ def camera_placement(radius_m, profile):
     return offset, Vector((0.0, 0.0, target_z))
 
 
+PREVIOUS_CAMERA_KEY = "blastfx_prev_camera"
+
+
+def restore_scene_camera(scene, previous_name):
+    """Give the scene back the user's camera if BlastFX left it without one."""
+    if scene.camera is not None or not previous_name:
+        return
+    cam = bpy.data.objects.get(previous_name)
+    if cam is not None and cam.type == "CAMERA":
+        scene.camera = cam
+
+
 def build_camera_fx(context, collection, controller, config):
+    """Add the blast's camera; make it the scene camera only when asked to.
+
+    The user's own camera stays the scene camera unless Use BlastFX Camera is
+    on (or the scene has no camera at all), and is remembered on the
+    controller so Rebuild and Remove can give it back.
+    """
+    scene = context.scene
     physical = config["physical"]
     profile = config.get("profile")
     radius = physical.characteristic_radius_m
     name = component_name(controller["blastfx_id"], "CameraFX")
-    cam = context.scene.camera
     blast_id = controller["blastfx_id"]
+    current = scene.camera
+    if current is not None and not current.get("blastfx_generated", False):
+        controller[PREVIOUS_CAMERA_KEY] = current.name
+    cam = current
     can_reuse = (
         cam is not None
         and cam.get("blastfx_generated", False)
@@ -79,7 +101,12 @@ def build_camera_fx(context, collection, controller, config):
         cam = bpy.data.objects.new(name, data)
         collection.objects.link(cam)
         cam.location = controller.location + offset
-        context.scene.camera = cam
+        if getattr(scene.blastfx, "camera_fx_active", False):
+            scene.camera = cam
+        else:
+            restore_scene_camera(scene, controller.get(PREVIOUS_CAMERA_KEY))
+            if scene.camera is None:
+                scene.camera = cam  # nothing to keep: a new scene renders through it
     cam.data.lens = 35.0
     cam.data.clip_start = max(0.01, radius * 0.01)
     cam.data.clip_end = max(1000.0, radius * 200.0)

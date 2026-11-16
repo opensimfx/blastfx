@@ -8,8 +8,8 @@ from blastfx.core.blender_api import runtime_self_test
 print("BlastFX Blender version:", bpy.app.version_string)
 errors = runtime_self_test()
 if errors:
-    print("BLAST FX API AUDIT: FAIL")
+    print("BLASTFX API AUDIT: FAIL")
     for error in errors:
         print(" -", error)
 else:
-    print("BLAST FX API AUDIT: PASS")
+    print("BLASTFX API AUDIT: PASS")

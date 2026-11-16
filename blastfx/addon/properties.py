@@ -132,7 +132,16 @@ class BLASTFX_Props(PropertyGroup):
         default=True,
         description="Detonation flash, then the fire's glow lighting the smoke and surroundings",
     )
-    use_camera_fx: BoolProperty(name="Camera FX", default=True)
+    use_camera_fx: BoolProperty(
+        name="Camera FX",
+        default=True,
+        description="Add a BlastFX camera framed on the blast, with a shake that arrives with the sound",
+    )
+    camera_fx_active: BoolProperty(
+        name="Use BlastFX Camera",
+        default=False,
+        description="Make the BlastFX camera the scene camera. Off keeps your own camera active (a scene without a camera still gets the BlastFX one); removing the blast restores your camera",
+    )
     use_exposure: BoolProperty(
         name="Exposure & Bloom",
         default=True,

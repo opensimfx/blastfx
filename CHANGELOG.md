@@ -1,8 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-11-16)
 
-- Nothing yet.
+First stable release.
+
+- Camera FX no longer takes over your camera: your scene camera stays active and the BlastFX camera (blast
+  framing, sound-delayed shake) is added beside it. New **Use BlastFX Camera** switches to it; Rebuild and
+  Remove give your camera back. A scene with no camera still renders through the BlastFX camera.
+- Saved presets live in the add-on's user data folder (`bpy.utils.extension_path_user`), kept across updates,
+  instead of next to the add-on inside Blender's extension folder; presets saved there by 0.2 and 0.3 still load.
+- Fix: **Save as Preset** wrote the file, then failed ("load_presets_from_directory is not defined") and the
+  new preset only appeared after a restart.
+- Fix: creating a blast in an unsaved file, saving it, then baking failed ("Blast cache has no active
+  generation"): the cache folder moves next to the .blend on save. Bake now prepares the cache there.
+- Disabling or updating BlastFX during a bake stops the background Blender worker and the progress timer; before,
+  the worker kept baking and the timer fired into the unloaded add-on.
+- The version is read from `blender_manifest.toml` (one place to change it); the legacy `bl_info` block is gone.
+- Continuous integration: the tests run on Linux, Windows and macOS (Python 3.11 and 3.13), and a Linux job
+  validates the built zip and runs the Mantaflow bake-and-render smoke test and the physics checks in Blender
+  5.2.3 and 5.2.4.
+- Verified on desktop Blender 5.2.3: a .blend made with 0.3.0 opens, rebuilds and bakes in this version; install,
+  create, save, bake and disable work from the installed extension.
+- Verified: every factory preset bakes and renders at Final quality at its full size (Apple M4 CPU, 14 min for
+  Small to about 3.5 h for Heavy; see docs/VALIDATION.md).
 
 ## 0.3.0-beta.1 (2026-11-16)
 

@@ -4,6 +4,7 @@ from .properties import register_properties, unregister_properties
 from .operators import CLASSES as OPERATOR_CLASSES
 from ..ui.panel import CLASSES as UI_CLASSES
 from ..core.cache import recover_caches
+from ..core.bake_job import shutdown as shutdown_bakes
 
 
 def _recover_caches_on_load(*_args):
@@ -28,6 +29,8 @@ def register():
 
 
 def unregister():
+    shutdown_bakes()
+
     for cls in reversed(UI_CLASSES):
         bpy.utils.unregister_class(cls)
 

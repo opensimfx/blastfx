@@ -141,3 +141,30 @@ def test_preset_without_resolution_clears_stale_override():
     apply_preset(props, "t")
     assert props.resolution == 0
     registry.load_presets_from_directory()
+
+
+def test_saved_presets_round_trip_and_first_folder_wins(tmp_path, monkeypatch):
+    user, legacy = tmp_path / "user", tmp_path / "legacy"
+    registry.save_preset_to_json(Preset(id="mine", label="New", description="", explosion_type="FUEL"), user)
+    registry.save_preset_to_json(Preset(id="mine", label="Old", description="", explosion_type="FUEL"), legacy)
+    monkeypatch.setattr(registry, "_preset_dirs", lambda: [user, legacy])
+    registry.load_presets_from_directory()
+    assert registry.PRESETS["mine"].label == "New"
+    monkeypatch.undo()
+    registry.load_presets_from_directory()
+
+
+def test_source_checkout_uses_repository_preset_folder():
+    # Not installed as an extension (tests, development): the repo's presets/.
+    assert not registry._installed()
+    assert registry.user_preset_dir() == registry._LEGACY_PRESET_DIR
+
+
+def test_version_comes_from_the_manifest():
+    import tomllib
+    from pathlib import Path
+    from blastfx.core.version import VERSION
+
+    manifest = tomllib.loads((Path(__file__).resolve().parents[1] / "blastfx" / "blender_manifest.toml").read_text())
+    pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())
+    assert VERSION == manifest["version"] == pyproject["project"]["version"]

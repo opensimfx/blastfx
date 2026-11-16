@@ -96,9 +96,13 @@ def remove_explosion(controller):
     if collection is None:
         raise ValueError("Blast controller is not inside a BlastFX collection.")
 
-    props = bpy.context.scene.blastfx
-    invalidate_cache(props, controller["blastfx_id"])
+    from ..animation.camera import PREVIOUS_CAMERA_KEY, restore_scene_camera
+
+    scene = bpy.context.scene
+    previous_camera = controller.get(PREVIOUS_CAMERA_KEY)
+    invalidate_cache(scene.blastfx, controller["blastfx_id"])
     remove_collection(collection)
+    restore_scene_camera(scene, previous_camera)
 
 
 def rebuild_explosion(context, controller):
@@ -133,4 +137,9 @@ def rebuild_explosion(context, controller):
     build_explosion(context, collection, controller, props, plan)
     build_animation(context, collection, controller, props, plan)
 
+    # The old BlastFX camera is gone; if it was the scene camera and the new
+    # build did not take over, hand the user's camera back.
+    from ..animation.camera import PREVIOUS_CAMERA_KEY, restore_scene_camera
+
+    restore_scene_camera(context.scene, controller.get(PREVIOUS_CAMERA_KEY))
     return list(validation.warnings)
