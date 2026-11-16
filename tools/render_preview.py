@@ -6,6 +6,19 @@
 quality: DRAFT (default), PREVIEW or FINAL. moment: where in the shot to render,
 0-1 of the baked frame range (default 0.5).
 
+Optional environment (defaults reproduce the validation renders):
+  BLASTFX_W / BLASTFX_H      resolution (960 x 540)
+  BLASTFX_SUN                sun elevation in degrees (20)
+  BLASTFX_SUN_AZ             sun azimuth in degrees (126)
+  BLASTFX_GROUND             ground colour "r,g,b" linear (0.06,0.07,0.06)
+  BLASTFX_CAM                camera distance in fireball radii (15)
+  BLASTFX_CAM_UP             camera height in fireball radii (2.2)
+  BLASTFX_FRAMES             shot length in frames (24)
+  BLASTFX_AGX                1: AgX view transform with Medium High Contrast
+  BLASTFX_CAMFX              0: no camera FX (shake, defocus), for sharp stills (1)
+  BLASTFX_MOMENTS            "0.12,0.4": render several moments from the one bake,
+                             written as <out>_<moment>.png
+
 Presets: small, medium, large, large_ground, nuclear_airburst, nuclear_groundburst
 """
 
@@ -54,8 +67,8 @@ def sky_world():
     bg = tree.nodes.new("ShaderNodeBackground")
     sky = tree.nodes.new("ShaderNodeTexSky")
     sky.sky_type = "MULTIPLE_SCATTERING"
-    sky.sun_elevation = 0.35
-    sky.sun_rotation = 2.2
+    sky.sun_elevation = np.radians(float(os.environ.get("BLASTFX_SUN", 20.05)))
+    sky.sun_rotation = np.radians(float(os.environ.get("BLASTFX_SUN_AZ", 126.05)))
     # A dim daylight sky: enough to read the smoke's shape, the sun does the lighting.
     tree.links.new(sky.outputs[0], bg.inputs[0])
     bg.inputs[1].default_value = 0.3
@@ -68,7 +81,9 @@ def sun_lamp(strength=5.0):
     data.angle = 0.02
     obj = bpy.data.objects.new("BlastFX Sun", data)
     bpy.context.scene.collection.objects.link(obj)
-    obj.rotation_euler = (np.pi / 2 - 0.35, 0.0, 2.2)
+    el = np.radians(float(os.environ.get("BLASTFX_SUN", 20.05)))
+    az = np.radians(float(os.environ.get("BLASTFX_SUN_AZ", 126.05)))
+    obj.rotation_euler = (np.pi / 2 - el, 0.0, az)
     return obj
 
 
@@ -81,7 +96,8 @@ def ground(z, size):
     mat = bpy.data.materials.new("BlastFX Ground")
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (0.06, 0.07, 0.06, 1.0)
+    rgb = [float(v) for v in os.environ.get("BLASTFX_GROUND", "0.06,0.07,0.06").split(",")]
+    bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
     bsdf.inputs["Roughness"].default_value = 0.9
     obj.data.materials.append(mat)
     return obj
@@ -101,7 +117,9 @@ def camera_for_blast(controller, radius):
     data.clip_end = radius * 2000
     cam = bpy.data.objects.new("BlastFX Camera", data)
     bpy.context.scene.collection.objects.link(cam)
-    cam.location = origin + Vector((-9 * radius, -12 * radius, 2.2 * radius))
+    dist = float(os.environ.get("BLASTFX_CAM", 15.0)) / 15.0
+    up = float(os.environ.get("BLASTFX_CAM_UP", 2.2))
+    cam.location = origin + Vector((-9 * radius * dist, -12 * radius * dist, up * radius))
     target = origin + Vector((0.0, 0.0, 2.6 * radius))
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = cam
@@ -133,17 +151,21 @@ def main(argv):
     scene.render.engine = "CYCLES"
     scene.cycles.samples = samples
     scene.cycles.use_denoising = True
-    scene.render.resolution_x, scene.render.resolution_y = 960, 540
+    scene.render.resolution_x = int(os.environ.get("BLASTFX_W", 960))
+    scene.render.resolution_y = int(os.environ.get("BLASTFX_H", 540))
+    if os.environ.get("BLASTFX_AGX") == "1":
+        scene.view_settings.view_transform = "AgX"
+        scene.view_settings.look = "AgX - Medium High Contrast"
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = str(out)
 
-    scene.frame_start, scene.frame_end = 1, 24
+    scene.frame_start, scene.frame_end = 1, int(os.environ.get("BLASTFX_FRAMES", 24))
     bpy.context.preferences.filepaths.use_relative_paths = False
 
     props = scene.blastfx
     apply_preset(props, preset_id)
     props.quality = quality
-    props.use_camera_fx = True
+    props.use_camera_fx = os.environ.get("BLASTFX_CAMFX", "1") != "0"
     props.use_exposure = False
     props.use_heat_distortion = False
 
@@ -175,7 +197,7 @@ def main(argv):
     collection = next(c for c in controller.users_collection if c.name.startswith("Blast_"))
     domain_obj = next(obj for obj in collection.objects if obj.get("blastfx_role") == "domain")
 
-    # Render at the chosen moment of the baked range.
+    # Render at the chosen moment(s) of the baked range.
     settings = domain_obj.modifiers["BlastFX Fluid"].domain_settings
     first, last = settings.cache_frame_start, settings.cache_frame_end
     scene.frame_set(int(round(first + moment * (last - first))))
@@ -187,9 +209,14 @@ def main(argv):
     camera_for_blast(controller, float(controller["blastfx_characteristic_radius_m"]))
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    t0 = time.time()
-    bpy.ops.render.render(write_still=True)
-    print(f"rendered {out} in {time.time() - t0:.1f}s", flush=True)
+    moments = [float(m) for m in os.environ["BLASTFX_MOMENTS"].split(",")] if os.environ.get("BLASTFX_MOMENTS") else [moment]
+    for m in moments:
+        target = out if len(moments) == 1 else out.with_name(f"{out.stem}_{m:g}{out.suffix}")
+        scene.frame_set(int(round(first + m * (last - first))))
+        scene.render.filepath = str(target)
+        t0 = time.time()
+        bpy.ops.render.render(write_still=True)
+        print(f"rendered {target} (frame {scene.frame_current}) in {time.time() - t0:.1f}s", flush=True)
 
     save = os.environ.get("BLASTFX_SAVE_BLEND")
     if save:

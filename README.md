@@ -3,14 +3,18 @@
 **Procedural cinematic explosions for Blender** — part of [OpenSimFX](https://github.com/opensimfx),
 alongside RainFX, FlowFX and AtmosFX.
 
-![Fuel explosion](docs/img/medium.png)
+![Fuel explosion: the fireball turning to smoke](docs/img/medium_fireball_smoke.png)
 
 | | |
 |---|---|
-| ![Large ground blast](docs/img/large_ground.png) | ![Nuclear ground burst](docs/img/nuclear_groundburst.png) |
+| ![Fuel explosion: the fireball](docs/img/medium_fireball.png) | ![Large ground blast: the fireball inside the dust](docs/img/large_ground_fireball.png) |
+| ![Large ground blast: the rising column](docs/img/large_ground_column.png) | ![Nuclear ground burst: fireball, base surge and debris](docs/img/nuclear_groundburst_fireball.png) |
 
-_Renders: desktop Blender 5.2, Cycles, Preview quality, 64 samples (`tools/render_preview.py`). They are validation
-checks, not showpieces._
+![Nuclear ground burst: the rising column](docs/img/nuclear_groundburst_column.png)
+
+_Renders: desktop Blender 5.2.3, Cycles, Preview quality, 64 samples with denoising, 1280 x 720, straight from
+`tools/render_preview.py` with a low evening sun over sand (command below). Each preset is baked once and rendered
+at several moments of the shot; about a minute per frame on an Apple M4. No compositing._
 
 BlastFX builds an explosion from three physical settings: the fireball size, the playback speed and the shot
 length. One click creates the whole stack: a Mantaflow gas domain sized to the event, the fireball burst, a rising
@@ -104,6 +108,10 @@ BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 $BLENDER -b --python tools/blender_runtime_smoke_test.py          # Mantaflow bake + render smoke test
 $BLENDER -b --python tools/physics_validation.py                  # physics wiring checks
 $BLENDER -b --factory-startup --python tools/render_preview.py -- medium docs/img/medium.png 64 PREVIEW 0.15
+# README renders: one bake, several moments, evening light (writes docs/img/medium_<moment>.png)
+BLASTFX_W=1280 BLASTFX_H=720 BLASTFX_SUN=6 BLASTFX_SUN_AZ=150 BLASTFX_GROUND=0.12,0.09,0.06 BLASTFX_CAM=12 \
+  BLASTFX_CAM_UP=1.2 BLASTFX_AGX=1 BLASTFX_CAMFX=0 BLASTFX_MOMENTS=0.08,0.2,0.45 \
+  $BLENDER -b --factory-startup --python tools/render_preview.py -- medium docs/img/medium.png 64 PREVIEW
 python tools/gen_preset_docs.py                   # regenerate docs/PRESETS.md
 python tools/build_extension.py                   # dist/blastfx-<version>.zip
 ```

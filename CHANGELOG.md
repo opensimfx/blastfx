@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- New README renders: six frames from three presets at 1280 x 720 under a low evening sun (fireballs, the fireball
+  in its dust, rising columns), replacing three flat-lit 960 x 540 validation renders.
+- `tools/render_preview.py`: optional environment settings for resolution, sun height and azimuth, ground colour,
+  camera distance and height, AgX, camera FX off for sharp stills, and several moments from one bake
+  (`BLASTFX_MOMENTS`). Without them it renders exactly as before.
+
 ## 1.0.0 (2026-11-16)
 
 First stable release.
