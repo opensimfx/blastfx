@@ -45,6 +45,9 @@ content-addressed: nothing re-bakes unless something that affects the simulation
 
 Requires Blender **5.2 LTS** (Mantaflow gas).
 
+BlastFX is coming to **Superhive** (Blender Market) as a paid add-on; GitHub releases no longer carry the zip.
+The source here is GPL-3.0, so you can build it yourself:
+
 ```bash
 python tools/build_extension.py        # -> dist/blastfx-<version>.zip
 ```
