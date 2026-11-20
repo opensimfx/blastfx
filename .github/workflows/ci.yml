@@ -51,3 +51,43 @@ jobs:
         run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/blender_runtime_smoke_test.py'
       - name: Physics wiring checks
         run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/physics_validation.py'
+      - name: Add-on end to end (background bake worker, cache safety, load handler)
+        run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/addon_bake_smoke.py'
+
+  # The same Blender checks on Windows and macOS: the bake runs in a second Blender process, and a
+  # POSIX-only import there once broke every bake on Windows while the Linux job stayed green.
+  blender-os:
+    name: Blender 5.2.3 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download Blender
+        run: |
+          V=5.2.3
+          if [ "$RUNNER_OS" = Windows ]; then
+            curl -sSL -o blender.zip "https://download.blender.org/release/Blender5.2/blender-$V-windows-x64.zip"
+            unzip -q blender.zip
+            echo "BLENDER=$PWD/blender-$V-windows-x64/blender.exe" >> "$GITHUB_ENV"
+          else
+            curl -sSL -o blender.dmg "https://download.blender.org/release/Blender5.2/blender-$V-macos-arm64.dmg"
+            hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/blender" blender.dmg
+            echo "BLENDER=$RUNNER_TEMP/blender/Blender.app/Contents/MacOS/Blender" >> "$GITHUB_ENV"
+          fi
+      - name: Build and validate the extension zip
+        run: |
+          python tools/build_extension.py
+          "$BLENDER" --command extension validate dist/blastfx-*.zip
+      - name: Mantaflow bake and render smoke test
+        run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/blender_runtime_smoke_test.py'
+      - name: Add-on end to end (background bake worker, cache safety, load handler)
+        run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/addon_bake_smoke.py'

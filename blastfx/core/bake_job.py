@@ -29,7 +29,7 @@ from .cache import (
 )
 from .bake_queue import BakeQueue
 from ..simulation.cache import validate_bake_setup
-from .cache_layout import GENERATION_MARKER
+from .cache_layout import GENERATION_MARKER, blast_dir, is_hex32, is_valid_blast_id
 
 
 POLL_INTERVAL = 0.4
@@ -56,9 +56,20 @@ _QUEUE = BakeQueue()
 
 
 def _atomic_json(path: Path, payload: dict) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    """Write JSON atomically. The temp name is per process (the add-on and its bake worker both write the status
+    file), and the final rename is retried: on Windows it fails with "Access is denied" while the other process
+    has the file open for reading, which the panel does on every redraw."""
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    temporary.replace(path)
+    for attempt in range(40):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == 39:
+                temporary.unlink(missing_ok=True)
+                raise
+            time.sleep(0.025)
 
 
 def _read_json(path: Path) -> dict:
@@ -200,14 +211,42 @@ def _start_next_queued_job() -> bool:
             print(f"BlastFX bake queue: starting bake for {blast_id} failed: {exc}")
 
 
+_STATUS_FIELDS = {
+    "state": str, "message": str, "elapsed_seconds": (int, float), "current_frame": int,
+    "frame_end": int, "eta_seconds": (int, float), "progress": (int, float),
+}
+_STATUS_MAX_BYTES = 1 << 20
+
+
 def job_status(controller) -> dict | None:
-    path = controller.get("blastfx_bake_status_path")
-    if not path:
+    """The last bake's status, read from ``<generation>/job/<job id>/status.json``.
+
+    The path is rebuilt from the controller's validated blast and job IDs. It is never taken from the file:
+    a .blend could otherwise name any path (a device that never ends, or a network share that makes Windows
+    send the user's credentials) and the panel reads this on every redraw. Only known fields with the right
+    types are returned.
+    """
+    blast_id, job_id = controller.get("blastfx_id"), controller.get("blastfx_bake_job_id")
+    if not is_valid_blast_id(blast_id) or not is_hex32(job_id):
         return None
     try:
-        return _read_json(Path(path))
-    except (OSError, ValueError):
+        path = active_cache_path(bpy.context.scene.blastfx, blast_id) / "job" / job_id / "status.json"
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > _STATUS_MAX_BYTES:
+            return None
+        data = _read_json(path)
+    except (OSError, ValueError, RuntimeError, AttributeError):
         return None
+    if not isinstance(data, dict):
+        return None
+    clean = {
+        key: data[key] for key, kind in _STATUS_FIELDS.items()
+        if isinstance(data.get(key), kind) and not isinstance(data.get(key), bool)
+    }
+    if "state" in clean and clean["state"] not in JOB_STATES:
+        del clean["state"]
+    if "progress" in clean:
+        clean["progress"] = min(max(float(clean["progress"]), 0.0), 1.0)
+    return clean or None
 
 
 def request_cancel(controller) -> None:
@@ -242,7 +281,7 @@ def follow_cache_root(props, controller, domain_obj) -> None:
     """
     blast_id = controller["blastfx_id"]
     settings = (domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid")).domain_settings
-    root = project_cache_root(props) / blast_id
+    root = blast_dir(project_cache_root(props), blast_id)
     if (root / GENERATION_MARKER).exists():
         settings.cache_directory = str(active_cache_path(props, blast_id))
         return
@@ -280,7 +319,6 @@ def start(context, controller, domain_obj) -> dict:
         raise OSError(f"Cache directory probe failed: {absolute_cache}")
     probe.unlink()
     domain_settings.cache_directory = str(absolute_cache)
-    bpy.context.preferences.filepaths.use_relative_paths = False
     print(
         "BlastFX cache contract:",
         f"generation={generation_path.name}",
@@ -304,8 +342,16 @@ def start(context, controller, domain_obj) -> dict:
     log_path = job_dir / "worker.log"
 
     # save_as_mainfile(copy=True) writes the prepared state without changing
-    # the user's current .blend path or replacing their working file.
-    result = bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), copy=True)
+    # the user's current .blend path or replacing their working file. Relative
+    # paths are off while the snapshot is written so the cache directory stays
+    # absolute in it; the user's preference is restored right after.
+    filepaths = bpy.context.preferences.filepaths
+    previous_relative = filepaths.use_relative_paths
+    filepaths.use_relative_paths = False
+    try:
+        result = bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), copy=True)
+    finally:
+        filepaths.use_relative_paths = previous_relative
     if "FINISHED" not in result:
         raise RuntimeError("Could not save the temporary bake snapshot.")
 
@@ -363,8 +409,10 @@ def start(context, controller, domain_obj) -> dict:
     job["pid"] = process.pid
     _ACTIVE_JOB = job
     controller["blastfx_bake_job_id"] = job_id
-    controller["blastfx_bake_status_path"] = str(status_path)
-    controller["blastfx_bake_log_path"] = str(log_path)
+    # status and log paths are derived from the IDs when needed, never stored in (and trusted from) the file
+    for stale in ("blastfx_bake_status_path", "blastfx_bake_log_path"):
+        if stale in controller:
+            del controller[stale]
     _write_status(job, "LAUNCHING", "Blender bake worker launched.")
     if not bpy.app.timers.is_registered(_poll):
         bpy.app.timers.register(_poll, first_interval=POLL_INTERVAL)

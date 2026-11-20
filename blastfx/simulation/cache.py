@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import bpy
@@ -93,7 +94,7 @@ def validate_bake_setup(context, domain_obj):
     cache_dir.mkdir(parents=True, exist_ok=True)
     probe = cache_dir / ".blastfx_write_test"
     try:
-        probe.write_text("ok")
+        probe.write_text("ok", encoding="utf-8")
     finally:
         try:
             probe.unlink()
@@ -104,7 +105,19 @@ def validate_bake_setup(context, domain_obj):
 
 
 def free(context, domain_obj):
-    _domain_modifier(domain_obj)
+    """Free the Mantaflow cache, only when the domain points at its own BlastFX cache generation.
+
+    Mantaflow's free deletes the data, noise, mesh, particles, guiding and config folders inside the domain's
+    cache directory, which is stored in the .blend; a file could point it at any folder.
+    """
+    mod = _domain_modifier(domain_obj)
+    cache_dir = Path(bpy.path.abspath(mod.domain_settings.cache_directory))
+    try:
+        expected = active_cache_path(context.scene.blastfx, domain_obj.get("blastfx_id"))
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise RuntimeError(f"This blast has no BlastFX cache to free ({exc}).") from None
+    if os.path.realpath(cache_dir) != os.path.realpath(expected):
+        raise RuntimeError("The domain's cache folder is not this blast's BlastFX cache; nothing was freed.")
     for obj in context.selected_objects:
         obj.select_set(False)
     domain_obj.select_set(True)

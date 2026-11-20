@@ -168,3 +168,68 @@ def test_version_comes_from_the_manifest():
     manifest = tomllib.loads((Path(__file__).resolve().parents[1] / "blastfx" / "blender_manifest.toml").read_text())
     pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())
     assert VERSION == manifest["version"] == pyproject["project"]["version"]
+
+
+# ------------------------------------------------------------ saved presets are files: names and contents are checked
+def test_preset_ids_cannot_leave_the_preset_folder(tmp_path):
+    import pytest
+    from blastfx.presets.registry import Preset, is_valid_preset_id, save_preset_to_json
+
+    assert is_valid_preset_id("my_blast_2")
+    for bad in ("../evil", "a/b", "..", "", "Big Blast", "C:\\\\x", "x" * 49, None):
+        assert not is_valid_preset_id(bad)
+        with pytest.raises(ValueError):
+            save_preset_to_json(Preset(id=bad, label="x", description="", explosion_type="FIREBALL"), tmp_path)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_saved_presets_are_utf8_and_round_trip(tmp_path):
+    from blastfx.presets import registry
+
+    p = registry.Preset(id="ma_pr\u00e9", label="x", description="", explosion_type="FIREBALL")
+    assert not registry.is_valid_preset_id(p.id)                       # ids stay ASCII ...
+    p = registry.Preset(id="cafe_blast", label="Caf\u00e9 \u2013 \u7206\u767a", explosion_type="FIREBALL",
+                        description="d\u00e9j\u00e0 vu", defaults={"scale": 2.0})
+    registry.save_preset_to_json(p, tmp_path)                           # ... labels need not be
+    raw = (tmp_path / "cafe_blast.json").read_bytes()
+    assert "\u7206".encode("utf-8") in raw
+    saved = dict(registry.PRESETS)
+    try:
+        registry.load_presets_from_directory(tmp_path)
+        assert registry.PRESETS["cafe_blast"].label == p.label
+    finally:
+        registry.PRESETS.clear()
+        registry.PRESETS.update(saved)
+
+
+def test_preset_files_without_a_valid_id_are_skipped(tmp_path):
+    from blastfx.presets import registry
+
+    (tmp_path / "bad.json").write_text('{"id": "../x", "label": "x", "type": "FIREBALL"}', encoding="utf-8")
+    (tmp_path / "list.json").write_text("[1, 2]", encoding="utf-8")
+    saved = dict(registry.PRESETS)
+    try:
+        registry.load_presets_from_directory(tmp_path)
+        assert "../x" not in registry.PRESETS
+    finally:
+        registry.PRESETS.clear()
+        registry.PRESETS.update(saved)
+
+
+def test_presets_only_set_their_own_settings():
+    from types import SimpleNamespace
+    from blastfx.presets import apply, registry
+
+    preset = registry.Preset(id="sneaky", label="x", description="", explosion_type="FIREBALL",
+                             defaults={"scale": 3.0, "cache_subdir": "../../elsewhere"},
+                             components={"camera_fx": False})
+    props = SimpleNamespace(preset_id="", explosion_type="", scale=1.0, cache_subdir="blastfx_cache",
+                            use_camera_fx=True, quality="PREVIEW", resolution=0, noise_upres=0)
+    registry.PRESETS["sneaky"] = preset
+    try:
+        apply.apply_preset(props, "sneaky")
+    finally:
+        del registry.PRESETS["sneaky"]
+    assert props.scale == 3.0
+    assert props.cache_subdir == "blastfx_cache"                       # not a preset setting
+    assert props.use_camera_fx is False                                 # saved camera FX now applies

@@ -43,10 +43,10 @@ content-addressed: nothing re-bakes unless something that affects the simulation
 
 ## Install
 
-Requires Blender **5.2 LTS or newer** (Mantaflow gas).
+Requires Blender **5.2 LTS** (Mantaflow gas).
 
 ```bash
-python tools/build_extension.py        # -> dist/blastfx-0.3.0.zip
+python tools/build_extension.py        # -> dist/blastfx-<version>.zip
 ```
 
 In Blender: *Edit > Preferences > Get Extensions > (v) > Install from Disk...*, pick the zip. The panel appears in

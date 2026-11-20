@@ -9,7 +9,7 @@ real-world timing changes. See [PHYSICS.md](PHYSICS.md) for why.
 
 1. Build the zip: `python tools/build_extension.py` (writes `dist/blastfx-<version>.zip`), or download it
    from a GitHub release.
-2. In Blender 5.2 or newer: *Edit > Preferences > Get Extensions > (v) > Install from Disk...*, pick the zip.
+2. In Blender 5.2 LTS: *Edit > Preferences > Get Extensions > (v) > Install from Disk...*, pick the zip.
 3. Open the 3D Viewport sidebar (**N**) and the **BlastFX** tab.
 
 ## Your first blast

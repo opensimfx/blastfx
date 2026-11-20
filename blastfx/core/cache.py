@@ -1,6 +1,5 @@
 from pathlib import Path
 import json
-import shutil
 import uuid
 import bpy
 
@@ -9,15 +8,20 @@ from .cache_layout import (
     EXPECTED_MARKER,
     GENERATION_MARKER,
     _generation_dir_from_root,
+    blast_dir,
+    has_blastfx_marker,
     inspect_mantaflow_cache_tree,
+    is_valid_blast_id,
     recover_generation,
+    remove_blast_dir,
 )
 
 
 def project_cache_root(props) -> Path:
     subdir = Path(props.cache_subdir)
-    if subdir.is_absolute() or ".." in subdir.parts:
-        raise ValueError("Cache folder must be a relative path without parent traversal.")
+    if subdir.is_absolute() or ".." in subdir.parts or not subdir.parts:
+        # an empty or "." folder would make the project folder itself the cache root
+        raise ValueError("Cache folder must be a relative subfolder name without parent traversal.")
     if bpy.data.filepath:
         project_dir = Path(bpy.data.filepath).parent
         return project_dir / subdir
@@ -25,13 +29,15 @@ def project_cache_root(props) -> Path:
 
 
 def cache_path(props, blast_id: str) -> Path:
-    path = project_cache_root(props) / blast_id
+    path = _blast_cache_root(props, blast_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _blast_cache_root(props, blast_id: str) -> Path:
-    return project_cache_root(props) / blast_id
+    """One blast's cache folder; raises ValueError for an ID not in the generated format or a path outside the
+    cache root (the ID comes from the .blend, which is untrusted)."""
+    return blast_dir(project_cache_root(props), blast_id)
 
 
 def _marker_path(cache_root: Path, marker: str) -> Path:
@@ -51,7 +57,15 @@ def prepare_cache(
         raise ValueError("Blast cache requires a controller ID and physics state hash.")
     root = _blast_cache_root(props, blast_id)
     if root.exists():
-        shutil.rmtree(root)
+        if has_blastfx_marker(root):
+            remove_blast_dir(root)
+        elif root.is_dir() and not any(root.iterdir()):
+            root.rmdir()
+        else:
+            raise RuntimeError(
+                f"{root} exists but is not a BlastFX cache; it was left untouched. "
+                "Move it away or choose another cache folder."
+            )
     generation = uuid.uuid4().hex
     path = root / generation
     path.mkdir(parents=True, exist_ok=False)
@@ -134,9 +148,14 @@ def clear_baked_marker(props, blast_id: str) -> None:
 
 
 def invalidate(props, blast_id: str):
-    cache_dir = project_cache_root(props) / blast_id
+    """Delete a blast's cache. Only a real BlastFX cache folder inside the cache root is ever removed; an invalid
+    ID or a folder without a BlastFX marker is left alone."""
+    try:
+        cache_dir = _blast_cache_root(props, blast_id)
+    except ValueError:
+        return blast_id
     if cache_dir.exists():
-        shutil.rmtree(cache_dir)
+        remove_blast_dir(cache_dir)
     return blast_id
 
 
@@ -149,7 +168,10 @@ def status(props, blast_id: str, domain=None, state_hash: str | None = None) -> 
         ):
             return "BAKING"
 
-    root = _blast_cache_root(props, blast_id)
+    try:
+        root = _blast_cache_root(props, blast_id)
+    except ValueError:
+        return "INVALID"
     if not root.exists():
         return "NOT_BAKED"
     try:
@@ -215,8 +237,11 @@ def recover_caches(context) -> list:
         blast_id = obj.get("blastfx_id", "")
         if not blast_id:
             continue
+        if not is_valid_blast_id(blast_id):
+            warning(f"{obj.name}: ignored a BlastFX ID that is not in the generated format: {blast_id!r}")
+            continue
         try:
-            note = recover_generation(project_cache_root(props) / blast_id)
+            note = recover_generation(_blast_cache_root(props, blast_id))
         except Exception as exc:
             warning(f"{blast_id}: cache recovery failed: {exc}")
             continue

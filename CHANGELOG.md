@@ -1,7 +1,47 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 (2026-11-19)
 
+Fixes from the Superhive (Blender Market) review.
+
+- **Cache safety.** A blast's cache folder is built from the controller's `blastfx_id`, which a .blend can carry
+  with any value. Cache recovery on file load, *invalidate* and *prepare cache* now:
+  - accept only IDs in the generated format (8 hexadecimal characters) and generation markers in theirs (32);
+  - check that the folder resolves inside the cache root and is not a symlink;
+  - delete nothing that does not carry a BlastFX marker, and refuse to replace an unmarked folder;
+  - remove only bake-snapshot folders (32-hex names) when cleaning stale jobs.
+
+  Previously a file with `blastfx_id` set to `..` or an absolute path could delete that folder when opened. An
+  empty or `.` *Cache folder* setting is now refused (it made the project folder the cache root).
+- **Windows**: the bake worker imported the POSIX-only `resource` module, so bakes failed on Windows. The import is
+  guarded; the peak-memory metric is simply not recorded there.
+- The bake no longer leaves *Preferences > File Paths > Relative Paths* turned off: it is switched off only while
+  the bake snapshot is saved (and in the worker process) and restored afterwards.
+- The extension zip now contains the GPL-3.0 `LICENSE`.
+
+Further fixes from a review of the whole add-on:
+
+- **Bake status no longer trusts a path stored in the file.** The panel read the status JSON from a path kept on the
+  controller, on every redraw; a crafted .blend could point it at a device that never ends (Blender hangs) or, on
+  Windows, a network share (Windows sends the user's credentials). The path is now rebuilt from the validated blast
+  and job IDs, and only known fields with the right types are used.
+- **Free Cache** only frees a domain whose cache folder is this blast's own BlastFX cache. Mantaflow's free deletes
+  the cache subfolders of whatever folder the .blend names.
+- **Cache recovery on load now actually runs**: the load handler lacked `@persistent`, so Blender dropped it the first
+  time a file was opened (stale bake snapshots were never cleaned).
+- **Saved presets**: the preset ID becomes the file name, so it must be lowercase letters, digits and underscores
+  (an ID like `../x` wrote outside the preset folder); preset files are read and written as UTF-8 (Windows' default
+  encoding broke non-ASCII labels); a preset can only set preset settings (not, for example, the cache folder), and a
+  wrongly typed value is skipped instead of aborting the load; a saved preset's *Camera FX* choice is applied again.
+- The panel caches the cache status for a second instead of listing the cache folder and opening every grid file on
+  each redraw.
+
+Cross-platform:
+
+- **Windows**: the bake status file is replaced atomically while the panel may be reading it, which Windows refuses
+  ("Access is denied"); the rename is now retried, and the add-on and its worker no longer share one temp file name.
+- CI runs the Blender checks on Windows and macOS as well as Linux, including a new end-to-end test
+  (`tools/addon_bake_smoke.py`) that bakes through the background worker and checks the cache-safety rules.
 - New README renders: six frames from three presets at 1280 x 720 under a low evening sun (fireballs, the fireball
   in its dust, rising columns), replacing three flat-lit 960 x 540 validation renders.
 - `tools/render_preview.py`: optional environment settings for resolution, sun height and azimuth, ground colour,

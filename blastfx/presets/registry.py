@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional
@@ -144,8 +145,10 @@ def load_presets_from_directory(preset_dir: Optional[Path] = None):
     dirs = [preset_dir] if preset_dir is not None else _preset_dirs()
     for json_file in (f for d in dirs if d.exists() for f in sorted(d.glob("*.json"))):
         try:
-            with open(json_file, "r") as f:
+            with open(json_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            if not isinstance(data, dict) or not is_valid_preset_id(data.get("id")):
+                raise ValueError("not a BlastFX preset (missing or invalid id)")
 
             preset = Preset(
                 id=data["id"],
@@ -167,8 +170,18 @@ def load_presets_from_directory(preset_dir: Optional[Path] = None):
             print(f"[BlastFX] Failed to load preset {json_file}: {e}")
 
 
+PRESET_ID_RE = re.compile(r"[a-z0-9_]{1,48}")
+
+
+def is_valid_preset_id(preset_id) -> bool:
+    """Lowercase letters, digits and underscores (the ID becomes the file name: no separators or '..')."""
+    return isinstance(preset_id, str) and PRESET_ID_RE.fullmatch(preset_id) is not None
+
+
 def save_preset_to_json(preset: Preset, preset_dir: Optional[Path] = None):
-    """Save a preset to a JSON file."""
+    """Save a preset to ``<preset folder>/<id>.json``."""
+    if not is_valid_preset_id(preset.id):
+        raise ValueError("Preset ID must be 1-48 lowercase letters, digits or underscores, e.g. 'my_blast'.")
     if preset_dir is None:
         preset_dir = user_preset_dir()
 
@@ -185,8 +198,8 @@ def save_preset_to_json(preset: Preset, preset_dir: Optional[Path] = None):
     }
 
     filepath = preset_dir / f"{preset.id}.json"
-    with open(filepath, "w") as f:
-        json.dump(data, f, indent=2)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 # Initialize on import

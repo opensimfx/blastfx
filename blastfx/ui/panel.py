@@ -3,6 +3,8 @@
 Layout follows docs/UI_STYLE.md, identical in every OpenSimFX add-on.
 """
 
+import time
+
 import bpy
 from bpy.types import Menu, Panel
 
@@ -35,6 +37,30 @@ def _split(layout):
     layout.use_property_split = True
     layout.use_property_decorate = False
     return layout
+
+
+_STATUS_MEMO: dict = {}
+_STATUS_TTL_S = 1.0
+
+
+def _cached_status(props, blast_id, domain_settings, state_hash):
+    """``cache.status`` lists the cache folder and opens every grid file; the panel redraws on every mouse
+    move, so the answer is kept for a second (a running bake changes the key and is never stale)."""
+    flags = tuple(
+        bool(getattr(domain_settings, name, False))
+        for name in ("is_cache_baking_data", "is_cache_baking_noise", "has_cache_baked_data", "has_cache_baked_noise")
+    )
+    key = (blast_id, state_hash, getattr(domain_settings, "cache_data_format", None), flags,
+           props.cache_subdir, bpy.data.filepath)
+    now = time.monotonic()
+    hit = _STATUS_MEMO.get(key)
+    if hit is not None and now - hit[0] < _STATUS_TTL_S:
+        return hit[1]
+    value = status(props, blast_id, domain_settings, state_hash)
+    if len(_STATUS_MEMO) > 64:
+        _STATUS_MEMO.clear()
+    _STATUS_MEMO[key] = (now, value)
+    return value
 
 
 def _controller(context):
@@ -240,8 +266,8 @@ class BLASTFX_PT_cache(_Base, Panel):
             return
 
         domain_settings = _domain_settings(controller)
-        cache_state = status(props, controller["blastfx_id"], domain_settings,
-                             controller.get("blastfx_physics_state"))
+        cache_state = _cached_status(props, controller.get("blastfx_id"), domain_settings,
+                                     controller.get("blastfx_physics_state"))
         worker = job_status(controller)
         state = worker.get("state") if worker else cache_state
         box = layout.box()
@@ -254,7 +280,7 @@ class BLASTFX_PT_cache(_Base, Panel):
         if worker and running:
             elapsed = int(worker.get("elapsed_seconds", 0))
             rows = [("Elapsed", f"{elapsed // 60:02d}:{elapsed % 60:02d}")]
-            if "current_frame" in worker:
+            if "current_frame" in worker and "frame_end" in worker:
                 rows.append(("Frame", f"{worker['current_frame']} / {worker['frame_end']}"))
             if worker.get("eta_seconds") is not None:
                 eta = int(worker["eta_seconds"])

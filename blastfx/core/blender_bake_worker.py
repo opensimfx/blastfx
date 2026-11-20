@@ -5,13 +5,17 @@ from __future__ import annotations
 import json
 import os
 import re
-import resource
 import sys
 import time
 import traceback
 from pathlib import Path
 
 import bpy
+
+try:  # POSIX only: Windows has no ``resource`` module, and the memory metric is optional
+    import resource
+except ImportError:
+    resource = None
 
 _FRAME_RE = re.compile(r"(?<!\d)(\d{1,8})(?!\d)")
 
@@ -54,9 +58,20 @@ def _inspect_cache_tree(root: Path, cache_data_format: str) -> dict:
 
 
 def _atomic_json(path: Path, payload: dict) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    """Write JSON atomically. The temp name is per process (the add-on and its bake worker both write the status
+    file), and the final rename is retried: on Windows it fails with "Access is denied" while the other process
+    has the file open for reading, which the panel does on every redraw."""
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    temporary.replace(path)
+    for attempt in range(40):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == 39:
+                temporary.unlink(missing_ok=True)
+                raise
+            time.sleep(0.025)
 
 
 def _write_status(request: dict, state: str, started: float, message: str = "") -> None:
@@ -79,8 +94,10 @@ def _write_status(request: dict, state: str, started: float, message: str = "") 
 METRICS_NAME = ".blastfx_metrics.json"
 
 
-def _peak_rss_mb() -> float:
-    """Peak resident memory of this worker process in MiB (macOS reports bytes)."""
+def _peak_rss_mb() -> float | None:
+    """Peak resident memory of this worker process in MiB (macOS reports bytes); None where unavailable (Windows)."""
+    if resource is None:
+        return None
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return round(peak / (1024 * 1024) if sys.platform == "darwin" else peak / 1024, 1)
 
@@ -131,6 +148,17 @@ def _write_metrics(request: dict, domain_settings, cache_root: Path, bake_starte
 
 
 def main() -> int:
+    # The worker loads the user's preferences and turns relative paths off (below); restore the user's value so
+    # nothing is left changed even if preferences are saved on exit.
+    filepaths = bpy.context.preferences.filepaths
+    previous_relative = filepaths.use_relative_paths
+    try:
+        return _run()
+    finally:
+        filepaths.use_relative_paths = previous_relative
+
+
+def _run() -> int:
     request_path = os.environ.get("BLASTFX_BAKE_REQUEST")
     if not request_path:
         raise RuntimeError("BLASTFX_BAKE_REQUEST is not set.")

@@ -1,4 +1,5 @@
 import bpy
+from bpy.app.handlers import persistent
 
 from .properties import register_properties, unregister_properties
 from .operators import CLASSES as OPERATOR_CLASSES
@@ -7,6 +8,7 @@ from ..core.cache import recover_caches
 from ..core.bake_job import shutdown as shutdown_bakes
 
 
+@persistent  # without it Blender drops the handler on the first file load and recovery never runs
 def _recover_caches_on_load(*_args):
     # Runs inside a load_post handler: recovery must never abort file opening.
     try:
