@@ -120,13 +120,17 @@ python tools/build_extension.py                   # dist/blastfx-<version>.zip
 ```
 
 Mantaflow bakes need desktop Blender; the `bpy` wheel crashes inside the solver. See
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Documentation
 
 [User guide](docs/USER_GUIDE.md) · [Presets](docs/PRESETS.md) · [Physics](docs/PHYSICS.md) ·
 [System design](docs/SYSTEM_DESIGN.md) · [Development](docs/DEVELOPMENT.md) · [Validation](docs/VALIDATION.md) ·
 [References](docs/REFERENCES.md) · [Roadmap](docs/ROADMAP.md) · [UI style](docs/UI_STYLE.md) · [Changelog](CHANGELOG.md)
+
+## Contributions
+
+This project does not accept contributions.
 
 ## License
 
