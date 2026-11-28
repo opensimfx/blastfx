@@ -8,6 +8,17 @@ from ..materials.volume import build_volume_material
 from .fluid import add_mesh_object, configure_fluid_modifier
 
 
+def apply_noise_settings(domain, numerical):
+    """The noise pass settings (also used by Re-bake Noise on an existing domain)."""
+    set_required_rna(domain,
+        use_noise=bool(numerical.noise_upres > 1),
+        noise_scale=max(1, min(100, int(numerical.noise_upres))),
+        noise_strength=max(0.0, min(10.0, numerical.noise_strength)),
+        noise_pos_scale=max(0.0001, min(10.0, numerical.noise_pos_scale)),
+        noise_time_anim=max(0.0001, min(10.0, numerical.noise_time_anim)),
+    )
+
+
 def build_domain(context, collection, controller, config):
     """Create and configure a Blender 5.2 Mantaflow gas domain."""
     blast_id = controller["blastfx_id"]
@@ -48,7 +59,11 @@ def build_domain(context, collection, controller, config):
         use_adaptive_domain=bool(numerical.use_adaptive_domain),
         adapt_threshold=float(numerical.adapt_threshold),
         adapt_margin=int(numerical.adapt_margin),
-        cache_type="ALL",
+        # MODULAR with a noise pass, so the noise alone can be re-baked (Re-bake Noise). Resumable is required:
+        # in Blender 5.2.3 a modular noise pass writes empty grids without it (1.4 KB against 367 KB per frame,
+        # measured); it costs ~2.6x the data cache's disk, not bake time.
+        cache_type="MODULAR" if numerical.noise_upres > 1 else "ALL",
+        cache_resumable=bool(numerical.noise_upres > 1),
         cache_directory=str(cache_dir),
         cache_frame_start=start_frame,
         cache_frame_end=end_frame,
@@ -77,17 +92,17 @@ def build_domain(context, collection, controller, config):
         fractions_threshold=0.05,
         cfl_condition=float(numerical.cfl_condition),
         additional_res=int(numerical.additional_res),
-        use_noise=bool(numerical.noise_upres > 1),
-        noise_scale=max(1, min(100, int(numerical.noise_upres))),
-        noise_strength=max(0.0, min(10.0, numerical.noise_strength)),
-        noise_pos_scale=max(0.0001, min(10.0, numerical.noise_pos_scale)),
-        noise_time_anim=max(0.0001, min(10.0, numerical.noise_time_anim)),
         timesteps_min=max(1, int(numerical.timesteps_min)),
         timesteps_max=max(int(numerical.timesteps_min), int(numerical.timesteps_max)),
         use_adaptive_timesteps=True,
     )
 
+    apply_noise_settings(domain, numerical)
     mat = build_volume_material(f"{name}_Volume", config)
+    props = getattr(context.scene, "blastfx", None)
+    if props is not None:  # artist look layer (material only, not part of the cache identity)
+        from ..materials.volume import LOOK_DEFAULTS, apply_fire_look
+        apply_fire_look(mat, **{k: getattr(props, k, v) for k, v in LOOK_DEFAULTS.items()})
     obj.data.materials.append(mat)
 
     obj["blastfx_role"] = "domain"

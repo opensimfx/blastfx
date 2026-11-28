@@ -52,7 +52,10 @@ def configure_cache(domain_obj, context, collection, controller, config, quality
         frame_start=start,
         frame_end=end,
     )
-    domain.cache_type = "ALL"
+    # MODULAR + resumable with a noise pass (see simulation.domain), ALL otherwise
+    modular = bool(getattr(domain, "use_noise", False))
+    domain.cache_type = "MODULAR" if modular else "ALL"
+    domain.cache_resumable = modular
     domain.cache_directory = str(cache_dir)
     domain.cache_frame_start = start
     domain.cache_frame_end = end
@@ -69,8 +72,10 @@ def validate_bake_setup(context, domain_obj):
 
     if domain.domain_type != "GAS":
         raise RuntimeError(f"Blast domain is {domain.domain_type!r}; expected GAS")
-    if domain.cache_type != "ALL":
-        raise RuntimeError(f"Blast cache type is {domain.cache_type!r}; expected ALL for Bake Simulation")
+    if domain.cache_type not in {"ALL", "MODULAR"}:
+        raise RuntimeError(f"Blast cache type is {domain.cache_type!r}; expected ALL or MODULAR")
+    if domain.cache_type == "MODULAR" and not domain.cache_resumable:
+        raise RuntimeError("A modular blast cache must be resumable (Blender 5.2 bakes empty noise otherwise)")
     if domain.cache_frame_end < domain.cache_frame_start:
         raise RuntimeError("Blast cache frame range is invalid")
     if int(domain.resolution_max) < 16:

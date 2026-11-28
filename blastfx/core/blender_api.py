@@ -5,7 +5,7 @@ import bmesh
 
 DOMAIN_REQUIRED = (
     "domain_type", "resolution_max", "time_scale", "use_adaptive_domain",
-    "adapt_threshold", "adapt_margin", "cache_type", "cache_directory",
+    "adapt_threshold", "adapt_margin", "cache_type", "cache_resumable", "cache_directory",
     "cache_frame_start", "cache_frame_end", "cache_data_format",
     "gravity", "alpha", "beta", "vorticity", "burning_rate", "flame_smoke",
     "flame_vorticity", "flame_ignition", "flame_max_temp", "use_noise",

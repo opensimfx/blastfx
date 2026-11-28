@@ -16,6 +16,31 @@ import bpy
 
 
 
+DIRECTED_DRIVE = 2.0   # sideways drive of a fully tilted blast, as a share of each system's launch speed
+
+
+def directed_bias(config, launch_speed):
+    """Directed blast: extra world-space velocity (x, y, 0) for a particle system that launches at
+    ``launch_speed``: the horizontal part of the blast direction x DIRECTED_DRIVE x launch speed. Straight up it
+    is zero (the blast as before); the more the blast is tilted, the harder everything leans that way. Emitters
+    are unrotated, so their object space is world space."""
+    if not config.get("directed"):
+        return (0.0, 0.0, 0.0)
+    dx, dy, _ = config.get("direction", (0.0, 0.0, 1.0))
+    k = DIRECTED_DRIVE * float(launch_speed)
+    return (dx * k, dy * k, 0.0)
+
+
+def _local_bias(config, launch_speed):
+    """directed_bias in the (rotated) emitter's object space."""
+    bias = directed_bias(config, launch_speed)
+    if not config.get("directed"):
+        return bias
+    from mathutils import Vector
+    rot = Vector(config["direction"]).to_track_quat("Z", "Y").to_matrix()
+    return tuple(rot.inverted() @ Vector(bias))
+
+
 def set_particle_seed(settings, seed):
     """ParticleSettings.seed is unavailable on some Blender builds (5.2); guard it."""
     if hasattr(settings, "seed"):
@@ -48,13 +73,23 @@ def _mesh_object(collection, name, build):
     return obj
 
 
-def _emitter(collection, controller, name, radius, height, role, component):
+def _upper_hemisphere(bm, radius):
+    bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=radius)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -1e-6], context="VERTS")
+
+
+def _emitter(collection, controller, name, radius, height, role, component, dome=False, direction=None):
+    """Emitter sphere; ``dome``: only its upper half, so particles launch up and out (normals point away)."""
     obj = _mesh_object(
         collection, name,
-        lambda bm: bmesh.ops.create_icosphere(bm, subdivisions=2, radius=radius),
+        (lambda bm: _upper_hemisphere(bm, radius)) if dome
+        else (lambda bm: bmesh.ops.create_icosphere(bm, subdivisions=2, radius=radius)),
     )
     obj.location = controller.location
     obj.location.z += height
+    if direction is not None:  # directed blast: the emitter faces the blast direction
+        from mathutils import Vector
+        obj.rotation_euler = Vector(direction).to_track_quat("Z", "Y").to_euler()
     obj.display_type = "WIRE"
     # Not hide_render: that hides the particles too. Hide only the emitter.
     obj.show_instancer_for_render = False
@@ -106,6 +141,49 @@ def _emission_material(name, temperature_k, strength):
     return material
 
 
+# Spark cooling (modelled): ejected embers start near 1900 K and cool towards the Draper point (~800 K, where
+# visible glow ends) over their life; radiance follows Stefan-Boltzmann (T^4), so a cooling spark dims as it
+# reddens. T(t) = T_end + (T_start - T_end) exp(-k t), t = age / lifetime.
+SPARK_T_START_K, SPARK_T_END_K, SPARK_COOLING_K = 1900.0, 800.0, 3.0
+
+
+def _cooling_spark_material(name, strength):
+    """Emission from a blackbody that cools over each particle's life (Particle Info age / lifetime)."""
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    nodes.clear()
+    out = nodes.new("ShaderNodeOutputMaterial")
+    info = nodes.new("ShaderNodeParticleInfo")
+
+    def math(op, a=None, b=None, clamp=False):
+        n = nodes.new("ShaderNodeMath")
+        n.operation = op
+        n.use_clamp = clamp
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = float(v)
+            else:
+                links.new(v, n.inputs[i])
+        return n.outputs[0]
+
+    t = math("DIVIDE", info.outputs["Age"], math("MAXIMUM", info.outputs["Lifetime"], 1.0), clamp=True)
+    decay = math("EXPONENT", math("MULTIPLY", t, -SPARK_COOLING_K))
+    temp = math("ADD", math("MULTIPLY", decay, SPARK_T_START_K - SPARK_T_END_K), SPARK_T_END_K)
+    blackbody = nodes.new("ShaderNodeBlackbody")
+    links.new(temp, blackbody.inputs["Temperature"])
+    rel = math("DIVIDE", temp, SPARK_T_START_K)
+    radiance = math("MULTIPLY", math("POWER", rel, 4.0), float(strength))
+    emission = nodes.new("ShaderNodeEmission")
+    links.new(blackbody.outputs["Color"], emission.inputs["Color"])
+    links.new(radiance, emission.inputs["Strength"])
+    links.new(emission.outputs[0], out.inputs["Surface"])
+    material["blastfx_spark_cooling"] = True
+    return material
+
+
 def _charred_material(name):
     material = bpy.data.materials.new(name)
     material.use_nodes = True
@@ -117,8 +195,46 @@ def _charred_material(name):
     return material
 
 
-def build_debris_particles(context, collection, controller, config):
-    """Tumbling charred shards thrown out by the blast."""
+# Debris smoke trails: each shard drags a thin smoke trail through the domain (a particle-source smoke flow on the
+# debris system). The trail is left behind in the air, so it takes only a tenth of the shard's speed.
+DEBRIS_TRAIL_DENSITY = 1.2
+DEBRIS_TRAIL_HEAT = 0.3          # warm smoke: rises a little, never ignites (no fuel)
+DEBRIS_TRAIL_VELOCITY = 0.1      # share of the shard's velocity given to its trail
+DEBRIS_TRAIL_SUBFRAMES = 4       # fast shards: sub-steps keep the trail continuous, not dotted
+DEBRIS_TRAIL_GATE_T = 0.5        # trails start once the shards have left the fireball (~0.8 R at 1.6 U), so
+                                 # the 220 shards do not dump one puff into its core at birth
+
+
+def _add_debris_trails(emitter, psys, config, start):
+    from .fluid import configure_fluid_modifier, configure_flow
+
+    numerical = config["numerical"]
+    _, flow = configure_fluid_modifier(emitter, "FLOW")
+    configure_flow(
+        flow,
+        flow_type="SMOKE",
+        flow_source="PARTICLES",
+        particle_system=psys,
+        temperature=DEBRIS_TRAIL_HEAT * numerical.temperature_scale,
+        density=DEBRIS_TRAIL_DENSITY * numerical.density_scale,
+        fuel=0.0,
+        subframes=DEBRIS_TRAIL_SUBFRAMES,
+        velocity_factor=DEBRIS_TRAIL_VELOCITY * numerical.particle_velocity_factor,
+    )
+    flow.use_particle_size = True
+    flow.particle_size = max(1.0, 0.5 * float(numerical.burst_particle_size_cells))   # at least a cell wide
+    # gate: Use Flow keyed off until the shards are clear of the fireball (Mantaflow reads it per frame)
+    gate = start + _frames(config, DEBRIS_TRAIL_GATE_T)
+    for frame, on in ((start, False), (gate - 1, False), (gate, True)):
+        flow.use_inflow = on
+        flow.keyframe_insert("use_inflow", frame=frame)
+    flow.use_inflow = True
+    emitter["blastfx_debris_trails"] = True
+    emitter["blastfx_debris_trail_start"] = gate
+
+
+def build_debris_particles(context, collection, controller, config, smoke_trails=True):
+    """Tumbling charred shards thrown out by the blast, optionally trailing smoke."""
     blast_id = controller["blastfx_id"]
     physical = config["physical"]
     numerical = config["numerical"]
@@ -126,8 +242,14 @@ def build_debris_particles(context, collection, controller, config):
     U = physical.characteristic_velocity_mps
     playback = numerical.playback_speed
 
+    # A surface blast throws its ejecta up and out (the ejecta curtain leaves at ~45 degrees); a full sphere
+    # threw half the shards straight into the ground, where they landed within a few frames (measured).
+    profile = config.get("profile")
     emitter = _emitter(collection, controller, f"Blast_{blast_id}_DebrisEmitter",
-                       r * 0.15, r * 0.15, "debris_emitter", "debris_particles")
+                       r * 0.15, r * 0.15, "debris_emitter", "debris_particles",
+                       dome=bool(config.get("directed")) or (bool(getattr(profile, "ground_surge", False))
+                                                             and config.get("preset") != "nuclear_airburst"),
+                       direction=config["direction"] if config.get("directed") else None)
     shards = _prototype_collection(collection, f"Blast_{blast_id}_DebrisMeshes")
     material = _charred_material(f"Blast_{blast_id}_Debris_Material")
     builders = (
@@ -152,6 +274,7 @@ def build_debris_particles(context, collection, controller, config):
         settings.physics_type = "NEWTON"
         settings.normal_factor = 1.6 * U * playback
         settings.factor_random = 0.9 * U * playback
+        settings.object_align_factor = _local_bias(config, 1.6 * U * playback)
         settings.particle_size = 1.0  # shard meshes are already sized to R
         settings.size_random = 0.6
         settings.use_rotations = True
@@ -167,7 +290,9 @@ def build_debris_particles(context, collection, controller, config):
         settings.mass = 0.5
         set_particle_seed(settings, numerical.seed)
 
-    _add_particle_system(emitter, "DebrisParticles", configure)
+    psys = _add_particle_system(emitter, "DebrisParticles", configure)
+    if smoke_trails:
+        _add_debris_trails(emitter, psys, config, start)
     return emitter
 
 
@@ -181,13 +306,14 @@ def build_spark_particles(context, collection, controller, config):
     playback = numerical.playback_speed
 
     emitter = _emitter(collection, controller, f"Blast_{blast_id}_SparkEmitter",
-                       r * 0.2, r * 0.25, "spark_emitter", "spark_particles")
+                       r * 0.2, r * 0.25, "spark_emitter", "spark_particles", dome=bool(config.get("directed")),
+                       direction=config["direction"] if config.get("directed") else None)
     prototypes = _prototype_collection(collection, f"Blast_{blast_id}_SparkMeshes")
     spark = _mesh_object(
         prototypes, f"Blast_{blast_id}_Spark",
         lambda bm: bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r * 0.008),
     )
-    spark.data.materials.append(_emission_material(f"Blast_{blast_id}_Spark_Material", 1900.0, 40.0))
+    spark.data.materials.append(_cooling_spark_material(f"Blast_{blast_id}_Spark_Material", 40.0))
 
     start = max(1, int(config.get("start_frame", 1)))
 
@@ -201,6 +327,7 @@ def build_spark_particles(context, collection, controller, config):
         settings.physics_type = "NEWTON"
         settings.normal_factor = 2.5 * U * playback
         settings.factor_random = 1.2 * U * playback
+        settings.object_align_factor = _local_bias(config, 2.5 * U * playback)
         settings.particle_size = 1.0
         settings.size_random = 0.7
         settings.render_type = "OBJECT"

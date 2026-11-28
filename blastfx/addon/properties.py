@@ -4,6 +4,7 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     StringProperty,
     PointerProperty,
@@ -24,6 +25,12 @@ QUALITY_PROFILES = [
     ("PREVIEW", "Preview", "Motion and shape validation"),
     ("FINAL", "Final", "Production-quality bake"),
 ]
+
+
+def _on_fire_look(self, context):
+    """Look sliders: update every BlastFX volume material in place (no rebuild, no re-bake)."""
+    from ..materials.volume import apply_fire_look_to_scene
+    apply_fire_look_to_scene(context.scene, self)
 
 
 class BLASTFX_Props(PropertyGroup):
@@ -122,11 +129,41 @@ class BLASTFX_Props(PropertyGroup):
         max=8,
     )
 
+    use_directed: BoolProperty(
+        name="Directed Blast",
+        default=False,
+        description="A one-sided blast: the whole fireball, debris and sparks drive into the half-space the "
+                    "Blast Direction faces (a charge against a wall, a vehicle hit from the side, a mortar "
+                    "burst). Needs a re-bake",
+    )
+    blast_direction: FloatVectorProperty(
+        name="Blast Direction",
+        description="Where a directed blast drives (at most 75 degrees from straight up; the ground surge stays "
+                    "put). Needs a re-bake",
+        default=(0.0, 0.0, 1.0), size=3, subtype="DIRECTION",
+    )
+    fire_path: PointerProperty(
+        name="Fire Path",
+        type=bpy.types.Object,
+        poll=lambda self, ob: ob.type == "CURVE",
+        description="A curve the fire runs along, like a fuel trail igniting (keep it inside the blast's "
+                    "domain). Editing the curve needs a re-bake",
+    )
+    fire_path_speed: FloatProperty(
+        name="Path Speed",
+        description="How fast the flame front runs along the Fire Path, in metres per second of event time",
+        default=6.0, min=0.1, max=500.0, unit="VELOCITY",
+    )
     use_fireball: BoolProperty(name="Fireball", default=True)
     use_stem: BoolProperty(name="Rising Column", default=True)
     use_dust: BoolProperty(name="Ground Surge", default=True)
     use_shockwave: BoolProperty(name="Shockwave", default=True)
     use_debris: BoolProperty(name="Debris", default=False)
+    use_debris_smoke: BoolProperty(
+        name="Smoking Debris",
+        default=True,
+        description="Debris shards drag thin smoke trails through the air (needs a re-bake)",
+    )
     use_flash: BoolProperty(
         name="Fire Light",
         default=True,
@@ -173,6 +210,34 @@ class BLASTFX_Props(PropertyGroup):
         default=1.0,
         min=0.0,
         max=10.0,
+    )
+
+    # --- Fire look (material only: changes the render, never the bake)
+    fire_exposure: FloatProperty(
+        name="Fire Exposure",
+        description="Brightness of the fire in stops (+1 = twice as bright). Material only: no re-bake",
+        default=0.0, min=-4.0, max=4.0, step=10,
+        update=_on_fire_look,
+    )
+    fire_contrast: FloatProperty(
+        name="Fire Contrast",
+        description="Above 1: a hotter core with darker, thinner flame edges; below 1: softer, fuller flames",
+        default=1.0, min=0.25, max=3.0,
+        update=_on_fire_look,
+    )
+    flame_breakup: FloatProperty(
+        name="Flame Break-up",
+        description="Breaks the fire into flickering tongues and holes (an evolving noise mask the fire moves "
+                    "through). 0 = the simulated fire as is",
+        default=0.0, min=0.0, max=1.0, subtype="FACTOR",
+        update=_on_fire_look,
+    )
+    fire_light_scene: FloatProperty(
+        name="Fire Lights Scene",
+        description="How strongly the fire lights the ground, the smoke and the scene, independent of how bright "
+                    "it looks to the camera (Cycles). 1 = physical",
+        default=1.0, min=0.0, max=10.0,
+        update=_on_fire_look,
     )
 
     cache_subdir: StringProperty(

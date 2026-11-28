@@ -73,6 +73,14 @@ def build_ground(context, collection, controller, config, domain):
         raise RuntimeError(f"Could not add ground collision modifier: {exc}") from exc
     collision = obj.modifiers[-1]
     collision.name = "BlastFX Collision"
+    # Shards and embers hitting soil lose most of their speed and soon stop (the defaults bounce them like
+    # rubber, and with low friction landed shards skated on at ~1 U for seconds, measured).
+    settings = getattr(obj, "collision", None)
+    if settings is not None:
+        settings.damping_factor = 0.8
+        settings.damping_random = 0.15
+        settings.friction_factor = 0.9
+        settings.friction_random = 0.1
 
     # Collider present: the domain bottom border must be off (leak guard).
     domain_settings = domain.modifiers["BlastFX Fluid"].domain_settings

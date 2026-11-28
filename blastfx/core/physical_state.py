@@ -4,6 +4,21 @@ from dataclasses import asdict
 from .physics import gravity_magnitude
 
 
+def _fire_path_state(props, physical):
+    """Fire path identity (only when one is set, so other blasts keep theirs): its shape and speed."""
+    path = getattr(props, "fire_path", None)
+    if path is None or getattr(path, "type", "") != "CURVE":
+        return {}
+    from ..simulation.fire_path import path_signature
+    return {"fire_path": path_signature(path, float(physical.characteristic_radius_m)),
+            "fire_path_speed": float(props.fire_path_speed)}
+
+
+def _direction(props):
+    from .domain_envelope import blast_direction, directed_vector
+    return blast_direction(directed_vector(props))
+
+
 def build_physical_state(
     props,
     scene,
@@ -45,7 +60,12 @@ def build_physical_state(
             "dust": bool(props.use_dust),
             "shockwave": bool(props.use_shockwave),
             "debris": bool(props.use_debris),
+            # only with debris on, so caches of blasts without debris keep their identity
+            **({"debris_smoke": bool(getattr(props, "use_debris_smoke", True))} if props.use_debris else {}),
         },
+        # only when aimed, so undirected blasts keep their identity
+        **({"directed": True, "direction": _direction(props)} if getattr(props, "use_directed", False) else {}),
+        **_fire_path_state(props, physical),
         "turbulence": float(props.turbulence),
         "smoke_density": float(props.smoke_density),
         "fire_temperature": float(props.fire_temperature),
@@ -67,3 +87,20 @@ def build_physical_state(
 def state_hash(state) -> str:
     encoded = json.dumps(state, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()[:16]
+
+
+# The noise pass (Mantaflow's upres wavelet noise) is baked after, and separately from, the simulation data in a
+# MODULAR cache. These settings change only the noise, so a cache whose *data* identity still matches can keep its
+# data and re-bake just the noise.
+NOISE_KEYS = ("noise_upres", "noise_strength", "noise_pos_scale", "noise_time_anim")
+
+
+def data_state_hash(state) -> str:
+    """Identity of the simulation data alone (the full identity without the noise settings)."""
+    numerical = {k: v for k, v in dict(state.get("numerical", {})).items() if k not in NOISE_KEYS}
+    return state_hash({**state, "numerical": numerical})
+
+
+def noise_state_hash(state) -> str:
+    numerical = dict(state.get("numerical", {}))
+    return state_hash({k: numerical.get(k) for k in NOISE_KEYS})

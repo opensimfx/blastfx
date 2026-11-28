@@ -15,7 +15,7 @@ from .fluid import (
     configure_fluid_modifier,
     configure_flow,
 )
-from .particles import _add_particle_system, set_particle_seed
+from .particles import _add_particle_system, directed_bias, set_particle_seed
 
 _CAP_SEGMENTS = 24
 _CAP_RINGS = 12
@@ -59,6 +59,9 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         physical.time_unit_s, numerical.playback_speed, fps
     )
 
+    # Directed blast: the lower cap bursts up like a ground blast's, and both caps turn to the blast direction,
+    # so the whole burst drives into the half-space it faces.
+    directed = bool(config.get("directed", False))
     name = component_name(blast_id, suffix)
     obj = add_mesh_object(
         collection,
@@ -67,7 +70,7 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # cap below the equator but bursts upward. Flipping the upper cap too
         # pointed its normals inward, so it burst into itself.
         lambda bm: _hemisphere(
-            bm, radius, upper, flip=bool(profile.burst_flip_lower and not upper)
+            bm, radius, upper, flip=bool((profile.burst_flip_lower or directed) and not upper)
         ),
         controller.location,
     )
@@ -93,6 +96,11 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
         # then divides it by the solver time scale (core.froude).
         settings.normal_factor = float(numerical.burst_normal_velocity)
         settings.factor_random = float(numerical.burst_random_velocity)
+        # directed blast: drive the burst sideways (see particles.directed_bias)
+        if directed:  # object space is the rotated cap's: the bias is world (x, y, 0) mapped into it
+            from mathutils import Vector
+            rot = Vector(config["direction"]).to_track_quat("Z", "Y").to_matrix()
+            settings.object_align_factor = tuple(rot.inverted() @ Vector(directed_bias(config, numerical.burst_normal_velocity)))
         set_particle_seed(settings, _particle_seed(numerical.seed, suffix))
 
     psys = _add_particle_system(obj, f"{name}_psys", configure_particles)
@@ -119,6 +127,9 @@ def _build_burst_flow(context, collection, controller, config, suffix, upper):
     # `emission` frames and live `lifetime` frames, so smoke stops being fed
     # once they die (verified empirically: cache sizes plateau after the last
     # particle). Mesh inflow gating is unnecessary with PARTICLES sources.
+    if directed:
+        from mathutils import Vector
+        obj.rotation_euler = Vector(config["direction"]).to_track_quat("Z", "Y").to_euler()
     obj.hide_render = True
     obj.display_type = "WIRE"
     obj["blastfx_role"] = "burst_emitter"

@@ -147,6 +147,36 @@ def _write_metrics(request: dict, domain_settings, cache_root: Path, bake_starte
     print("BlastFX worker metrics:", json.dumps(payload), flush=True)
 
 
+def _bake(request: dict, started: float, domain_settings, mode: str) -> set:
+    """ALL: one pass. MODULAR (blasts with noise): data, then noise, the same result as ALL with the noise kept
+    separate so it can be re-baked alone. mode "noise": bake only the noise over the kept data."""
+    if mode == "noise":
+        # The kept data was baked by an earlier worker, so this file does not know it: Mantaflow's noise pass reads
+        # data only up to the domain's last baked data frame (0 here) and would bake empty noise (measured). Check
+        # the data on disk covers the whole range, then record it as baked. The old noise files were deleted by the
+        # main process before the snapshot (loaded as "already baked" otherwise).
+        data = _inspect_cache_tree(Path(request["cache_path"]) / "data", domain_settings.cache_data_format)
+        first, last = int(domain_settings.cache_frame_start), int(domain_settings.cache_frame_end)
+        if not data["volumetric_count"] or data["first_frame"] > first or data["last_frame"] < last:
+            raise RuntimeError(f"Kept simulation data does not cover frames {first}-{last}: bake the blast again.")
+        domain_settings.has_cache_baked_data = True
+        domain_settings.cache_frame_pause_data = last
+        domain_settings.has_cache_baked_noise = False
+        domain_settings.cache_frame_pause_noise = 0
+        _write_status(request, "BAKING_NOISE", started, "Re-baking the noise pass.")
+        return bpy.ops.fluid.bake_noise()
+    _write_status(request, "BAKING_DATA", started, "Baking simulation data.")
+    if domain_settings.cache_type == "ALL":
+        return bpy.ops.fluid.bake_all()
+    result = bpy.ops.fluid.bake_data()
+    if "FINISHED" not in result or not domain_settings.use_noise:
+        return result
+    if Path(request["cancel_path"]).exists():
+        return {"CANCELLED"}
+    _write_status(request, "BAKING_NOISE", started, "Baking the noise pass.")
+    return bpy.ops.fluid.bake_noise()
+
+
 def main() -> int:
     # The worker loads the user's preferences and turns relative paths off (below); restore the user's value so
     # nothing is left changed even if preferences are saved on exit.
@@ -215,8 +245,11 @@ def _run() -> int:
     )
     if resolved != Path(os.path.realpath(authoritative)):
         raise RuntimeError(f"Worker cache path mismatch: {resolved} != {authoritative}")
-    if domain_settings.cache_type != "ALL":
-        raise RuntimeError(f"Worker requires cache_type='ALL', got {domain_settings.cache_type!r}")
+    mode = request.get("mode", "all")
+    if domain_settings.cache_type not in {"ALL", "MODULAR"}:
+        raise RuntimeError(f"Worker requires cache_type ALL or MODULAR, got {domain_settings.cache_type!r}")
+    if mode == "noise" and (domain_settings.cache_type != "MODULAR" or not domain_settings.use_noise):
+        raise RuntimeError("A noise re-bake needs a MODULAR cache with noise on.")
     if str(domain_settings.cache_data_format) != request["cache_data_format"]:
         raise RuntimeError(
             "Worker cache format mismatch: "
@@ -241,10 +274,9 @@ def _run() -> int:
     bpy.ops.object.select_all(action="DESELECT")
     domain.select_set(True)
     bpy.context.view_layer.objects.active = domain
-    _write_status(request, "BAKING_DATA", started, "Baking simulation data.")
     bake_started_wall = time.time()
     bake_started = time.monotonic()
-    result = bpy.ops.fluid.bake_all()
+    result = _bake(request, started, domain_settings, mode)
     bake_seconds = time.monotonic() - bake_started
     if "CANCELLED" in result:
         _write_status(request, "CANCELLED", started, "Mantaflow cancelled the bake.")

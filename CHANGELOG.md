@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+- **Fire grading** (Look, no re-bake): *Fire Exposure* (stops), *Fire Contrast* (pivots on a typical flame, so
+  the fire keeps its brightness), *Flame Break-up* (an evolving noise mask that splits the fire into tongues) and
+  *Fire Lights Scene* (how strongly the fire lights its surroundings, apart from how bright it looks; Cycles).
+  Material only: changes show live and never invalidate the cache; defaults render exactly as before.
+- **Smoking Debris** (with Debris): each shard drags a thin smoke trail through the domain, starting once it is
+  clear of the fireball. Needs a re-bake.
+- **Directed Blast**: a one-sided blast that drives its fireball, debris and sparks into the half-space the
+  *Blast Direction* faces (at most 75 degrees from up); the domain shifts that way. Needs a re-bake.
+- **Fire Path**: pick a curve and a flame front runs along it at *Path Speed*, like a fuel trail igniting, and
+  keeps burning behind the front. Editing the curve asks for a re-bake.
+- **Preview Flipbook** (Cache and Bake, after a bake): renders the baked range at half size with few samples into
+  the blast's cache folder, then *Play Flipbook* plays it; the scene's render settings are restored.
+- **Export Sprite Sheet** (Cache and Bake, after a bake): the baked blast as one transparent flipbook atlas
+  (4 x 4, 6 x 6 or 8 x 8 frames) plus a JSON (grid, frame size, playback fps, world size), for camera-facing cards
+  and game engines. Rendered through a temporary side-on orthographic camera framed on the blast, lit by the
+  scene's lights and world with its other geometry and the compositor off; saved in `blastfx_sprites/` next to
+  the .blend.
+- **Re-bake Noise** (Cache and Bake): after a Final bake, change Noise and bake only the noise pass again; the
+  simulation data is kept (a fraction of a full bake's time). Final bakes now use a modular, resumable cache
+  (data, then noise): Blender 5.2.3 writes empty noise in a modular cache that is not resumable (measured), so
+  resumable is required; it takes about 2.6x the disk for the data cache, not more bake time. A setting that
+  changes the simulation itself still needs a full bake; the button refuses.
+- Sparks cool over their life (blackbody from about 1900 K towards 800 K, dimming as T^4) instead of glowing at
+  one temperature.
+- Debris from a surface blast is thrown up and out (an ejecta curtain); before, half the shards were thrown into
+  the ground and landed within a few frames. Landed shards and sparks now lose most of their speed instead of
+  bouncing like rubber.
+
 ## 1.0.1 (2026-11-19)
 
 Fixes from the Superhive (Blender Market) review.

@@ -107,21 +107,33 @@ def _cache_progress(job: dict) -> dict:
         cache_path = active_cache_path(bpy.context.scene.blastfx, job["blast_id"])
     except RuntimeError:
         return {}
-    frames = []
-    for path in cache_path.rglob("*"):
-        if path.suffix.lower() not in {".vdb", ".uni"}:
-            continue
-        matches = re.findall(r"(?<!\d)(\d{1,8})(?!\d)", path.stem)
-        frames.extend(int(value) for value in matches)
-    if not frames:
-        return {}
-    current = min(max(frames), job["frame_end"])
+    # Progress per phase: a modular bake writes data/ first, then noise/; a noise re-bake only noise/ (its
+    # data/ is already complete and must not count).
+    phases = job.get("phases") or ("",)
     span = max(job["frame_end"] - job["frame_start"], 1)
-    progress = min(1.0, max(0.0, (current - job["frame_start"]) / span))
+    done, current, label = 0.0, None, ""
+    for phase in phases:
+        root = cache_path / phase if phase else cache_path
+        frames = []
+        for path in root.rglob("*") if root.is_dir() else ():
+            if path.suffix.lower() not in {".vdb", ".uni"}:
+                continue
+            matches = re.findall(r"(?<!\d)(\d{1,8})(?!\d)", path.stem)
+            frames.extend(int(value) for value in matches)
+        if not frames:
+            break
+        current = min(max(frames), job["frame_end"])
+        label = phase
+        done += min(1.0, max(0.0, (current - job["frame_start"]) / span))
+        if current < job["frame_end"]:
+            break
+    if current is None:
+        return {}
+    what = "noise " if label == "noise" else ""
     return {
         "current_frame": current,
-        "progress": progress,
-        "message": f"Baking frame {current} / {job['frame_end']}",
+        "progress": min(1.0, done / len(phases)),
+        "message": f"Baking {what}frame {current} / {job['frame_end']}",
     }
 
 
@@ -294,7 +306,11 @@ def follow_cache_root(props, controller, domain_obj) -> None:
     ))
 
 
-def start(context, controller, domain_obj) -> dict:
+def start(context, controller, domain_obj, mode: str = "all") -> dict:
+    """Launch the bake worker. ``mode`` "all" bakes the blast; "noise" re-bakes only the noise pass of a modular
+    cache whose data is kept (see cache.retarget_for_noise)."""
+    if mode not in {"all", "noise"}:
+        raise ValueError(f"Unknown bake mode {mode!r}")
     global _ACTIVE_JOB
     if _ACTIVE_JOB is not None:
         raise RuntimeError("A BlastFX bake is already running.")
@@ -365,6 +381,9 @@ def start(context, controller, domain_obj) -> dict:
         "cancel_path": cancel_path,
         "started_monotonic": time.monotonic(),
         "process": None,
+        "mode": mode,
+        "phases": ("noise",) if mode == "noise" else (
+            ("data", "noise") if domain_settings.cache_type == "MODULAR" else ("",)),
     }
     request = {
         "job_id": job_id,
@@ -378,6 +397,7 @@ def start(context, controller, domain_obj) -> dict:
         "frame_end": expected["frame_end"],
         "quality": props.quality,
         "noise": int(props.noise_upres),
+        "mode": mode,
         "log_path": str(log_path),
         "status_path": str(status_path),
         "cancel_path": str(cancel_path),
@@ -567,10 +587,13 @@ def _poll():
                 f"bytes={inspection['total_bytes']} "
                 f"frames={inspection['first_frame']}-{inspection['last_frame']}"
             )
+        if job.get("mode") == "noise" and not any(cache_path.joinpath("noise").rglob("*.vdb")):
+            raise RuntimeError("Noise re-bake finished without noise cache files.")
         mark_baked(
             props,
             job["blast_id"],
             state_hash=controller.get("blastfx_physics_state", ""),
+            data_hash=controller.get("blastfx_data_state", ""),
         )
     except Exception as exc:
         clear_baked_marker(props, job["blast_id"])

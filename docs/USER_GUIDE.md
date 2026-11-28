@@ -38,11 +38,15 @@ places a copy with the same settings beside it; **Remove Blast** deletes its col
 | Playback Speed | 1 = real time, 0.5 = 2x slow motion. Practical explosions are usually filmed in slow motion. |
 | Duration | Real event seconds the shot covers. **0** = automatic: the type's natural length at this size (the panel shows it). |
 | Start Frame, Seed | When the blast starts; the seed varies the details without changing the look. |
+| Directed Blast, Blast Direction | A one-sided blast: fireball, debris and sparks drive into the half-space the direction faces (a charge against a wall, a vehicle hit from the side, a mortar burst). At most 75 degrees from straight up; the ground surge stays put and the domain shifts that way. |
 
 ### Components
 
 Simulation parts: **Fireball**, **Rising Column**, **Ground Surge** (dust), **Shockwave** (dust ring),
-**Debris**, and **Rapatronic Skin** for Nuclear. Cinematic parts: **Fire Light**, **Camera FX** (a camera framed
+**Debris** (with **Smoking Debris**: each shard drags a thin smoke trail once it is clear of the fireball),
+and **Rapatronic Skin** for Nuclear. **Fire Path**: pick a curve and a flame front runs along it at **Path
+Speed** (metres per second of event time), like a fuel trail igniting, burning on behind the front; keep the
+curve inside the blast's domain, and re-bake after editing it. Cinematic parts: **Fire Light**, **Camera FX** (a camera framed
 on the blast, with a shake that arrives with the sound), **Exposure & Bloom** and **Heat Distortion**. Your own
 scene camera stays active: the BlastFX camera is added beside it. Turn on **Use BlastFX Camera** to render
 through it; removing the blast gives your camera back. A scene with no camera uses the BlastFX one.
@@ -51,6 +55,16 @@ through it; removing the blast gives your camera back. A scene with no camera us
 
 **Fire Temperature**, **Smoke Density**, **Turbulence** and **Intensity** scale the type's defaults. They
 change the look, not the physics: a blast with higher Smoke Density is the same event with darker smoke.
+
+**Fire Grading** changes only the material, so it updates the baked blast live (even during a bake) and never
+needs a re-bake. All four are neutral at their defaults.
+
+| Setting | What it does |
+|---|---|
+| Fire Exposure | Fire brightness in stops: +1 doubles it. |
+| Fire Contrast | Above 1: a hotter core with thinner, darker flame edges; below 1: softer, fuller flames. Pivots on a typical flame, so the fire keeps roughly its brightness. |
+| Flame Break-up | Splits the fire into flickering tongues and gaps (an evolving noise mask about the fireball's depth). |
+| Fire Lights Scene | How strongly the fire lights the ground, smoke and scene, separately from how bright it looks to the camera. Cycles only; mostly visible at night. |
 
 ### Cache and Bake
 
@@ -65,7 +79,14 @@ set a number to override it. **Noise** only applies to Final. The cache lives un
 folder per blast; **Free Cache** deletes it. A cache is only reused when everything that affects the
 simulation is unchanged, so changing a setting marks it out of date instead of showing a wrong bake.
 
-**Bake All Blasts** queues every blast in the scene.
+**Bake All Blasts** queues every blast in the scene. After a bake, **Render Flipbook** renders the baked range
+at half size with few samples (EEVEE by default) into the blast's cache folder, to check timing and shape before
+the full render; **Play Flipbook** plays it in Blender's animation player. **Re-bake Noise** (Final quality):
+change **Noise** after a bake and bake only the noise pass again; the simulation itself is kept. It refuses when
+a setting that changes the simulation was changed too. **Export Sprite Sheet** renders the baked blast into one
+transparent atlas of frames (4 x 4 to 8 x 8) plus a JSON describing it, for camera-facing cards and game engines;
+it is lit by your scene's lights and world and saved in `blastfx_sprites/` next to the .blend. Your render settings are put back
+afterwards, also if you cancel with Esc.
 
 ### Readout and Diagnostics
 

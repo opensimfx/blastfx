@@ -13,6 +13,7 @@ import shutil
 
 EXPECTED_MARKER = ".blastfx_expected.json"
 COMPLETE_MARKER = ".blastfx_complete"
+NOISE_PENDING_MARKER = ".blastfx_noise_pending"   # data kept, noise being re-baked (survives an interruption)
 GENERATION_MARKER = ".blastfx_generation"
 _FRAME_RE = re.compile(r"(?<!\d)(\d{1,8})(?!\d)")
 # Folder names BlastFX creates: controller.new_blast_id() and uuid4().hex. A .blend is untrusted input, so an ID

@@ -26,6 +26,7 @@ _STATE_LABELS = {
     "NOT_BAKED": "Not baked",
     "READY_TO_BAKE": "Not baked",
     "STALE": "Out of date",
+    "NOISE_STALE": "Noise out of date",
 }
 
 
@@ -43,20 +44,20 @@ _STATUS_MEMO: dict = {}
 _STATUS_TTL_S = 1.0
 
 
-def _cached_status(props, blast_id, domain_settings, state_hash):
+def _cached_status(props, blast_id, domain_settings, state_hash, data_hash=None):
     """``cache.status`` lists the cache folder and opens every grid file; the panel redraws on every mouse
     move, so the answer is kept for a second (a running bake changes the key and is never stale)."""
     flags = tuple(
         bool(getattr(domain_settings, name, False))
         for name in ("is_cache_baking_data", "is_cache_baking_noise", "has_cache_baked_data", "has_cache_baked_noise")
     )
-    key = (blast_id, state_hash, getattr(domain_settings, "cache_data_format", None), flags,
+    key = (blast_id, state_hash, data_hash, getattr(domain_settings, "cache_data_format", None), flags,
            props.cache_subdir, bpy.data.filepath)
     now = time.monotonic()
     hit = _STATUS_MEMO.get(key)
     if hit is not None and now - hit[0] < _STATUS_TTL_S:
         return hit[1]
-    value = status(props, blast_id, domain_settings, state_hash)
+    value = status(props, blast_id, domain_settings, state_hash, data_hash)
     if len(_STATUS_MEMO) > 64:
         _STATUS_MEMO.clear()
     _STATUS_MEMO[key] = (now, value)
@@ -189,6 +190,9 @@ class BLASTFX_PT_explosion(_Base, Panel):
         col = layout.column(align=True)
         col.prop(props, "start_frame")
         col.prop(props, "seed")
+        layout.prop(props, "use_directed")
+        if props.use_directed:
+            layout.prop(props, "blast_direction")
 
 
 class BLASTFX_PT_components(_Base, Panel):
@@ -206,8 +210,16 @@ class BLASTFX_PT_components(_Base, Panel):
         col.prop(props, "use_dust")
         col.prop(props, "use_shockwave")
         col.prop(props, "use_debris")
+        if props.use_debris:
+            row = col.row()
+            row.separator()
+            row.prop(props, "use_debris_smoke")
         if props.explosion_type == "NUCLEAR":
             col.prop(props, "use_rapatronic")
+        col = layout.column(align=True)
+        col.prop(props, "fire_path")
+        if props.fire_path is not None:
+            col.prop(props, "fire_path_speed")
         col = layout.column(heading="Cinematic", align=True)
         col.prop(props, "use_flash")
         col.prop(props, "use_camera_fx")
@@ -229,12 +241,19 @@ class BLASTFX_PT_look(_Sub, Panel):
     def draw(self, context):
         props = _props(context)
         layout = _split(self.layout)
-        layout.enabled = active_job() is None
         col = layout.column(align=True)
+        col.enabled = active_job() is None
         col.prop(props, "fire_temperature")
         col.prop(props, "smoke_density")
         col.prop(props, "turbulence")
         col.prop(props, "intensity")
+        # material only: live on the existing blast, usable during a bake, never invalidates the cache
+        layout.label(text="Fire Grading (no re-bake)")
+        col = layout.column(align=True)
+        col.prop(props, "fire_exposure")
+        col.prop(props, "fire_contrast")
+        col.prop(props, "flame_breakup")
+        col.prop(props, "fire_light_scene")
 
 
 class BLASTFX_PT_cache(_Base, Panel):
@@ -267,7 +286,7 @@ class BLASTFX_PT_cache(_Base, Panel):
 
         domain_settings = _domain_settings(controller)
         cache_state = _cached_status(props, controller.get("blastfx_id"), domain_settings,
-                                     controller.get("blastfx_physics_state"))
+                                     controller.get("blastfx_physics_state"), controller.get("blastfx_data_state"))
         worker = job_status(controller)
         state = worker.get("state") if worker else cache_state
         box = layout.box()
@@ -301,6 +320,19 @@ class BLASTFX_PT_cache(_Base, Panel):
         col.scale_y = 1.2
         col.operator("blastfx.bake", icon="REC")
         layout.operator("blastfx.bake_all", icon="RENDER_ANIMATION")
+        if state in {"BAKED", "NOISE_STALE"} and domain_settings is not None \
+                and domain_settings.cache_type == "MODULAR":
+            changed = state == "NOISE_STALE" or int(props.noise_upres) != int(domain_settings.noise_scale)
+            if changed:
+                layout.label(text="Only the noise changed: no full bake needed", icon="INFO")
+            row = layout.row()
+            row.alert = changed
+            row.operator("blastfx.rebake_noise", icon="MOD_NOISE")
+        if state == "BAKED":
+            row = layout.row(align=True)
+            row.operator("blastfx.flipbook", icon="RENDER_RESULT")
+            row.operator("blastfx.play_flipbook", text="", icon="PLAY")
+            layout.operator("blastfx.sprite_sheet", icon="IMAGE_DATA")
         layout.separator()
         layout.operator("blastfx.free", icon="TRASH")
 

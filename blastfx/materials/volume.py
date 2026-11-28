@@ -32,6 +32,118 @@ def _math(nodes, operation, value, location):
     return node
 
 
+# Artist look layer on top of the physical fire (material only: never touches the bake). Defaults are neutral, so
+# a blast renders exactly as the physical shader alone.
+LOOK_DEFAULTS = {"fire_exposure": 0.0, "fire_contrast": 1.0, "flame_breakup": 0.0, "fire_light_scene": 1.0}
+LOOK_TAG = "blastfx_volume_material"
+BREAKUP_NOISE_SCALE = 1.5      # features ~ the fire's depth: emission sums along each ray, so smaller holes average out
+CONTRAST_PIVOT = 0.12          # flame**gamma value contrast pivots on (a typical visible flame keeps its brightness)
+BREAKUP_FLICKER_PER_S = 1.5    # how fast the break-up pattern evolves (noise W per second)
+
+
+def _look_nodes(mat):
+    nodes = mat.node_tree.nodes
+    return {k: nodes.get(f"BlastFX {k}") for k in ("Exposure", "Contrast", "Contrast Pivot", "Breakup", "Light Scene")}
+
+
+def apply_fire_look(mat, fire_exposure=0.0, fire_contrast=1.0, flame_breakup=0.0, fire_light_scene=1.0):
+    """Set the look layer of a BlastFX volume material; returns False if it has none (built by an older version)."""
+    n = _look_nodes(mat)
+    if any(v is None for v in n.values()):
+        return False
+    n["Exposure"].outputs[0].default_value = 2.0 ** float(fire_exposure)
+    c = max(float(fire_contrast), 0.01)
+    n["Contrast"].inputs[1].default_value = c
+    n["Contrast Pivot"].inputs[1].default_value = CONTRAST_PIVOT ** (1.0 - c)  # (x / pivot)^c x pivot
+    n["Breakup"].inputs[0].default_value = min(max(float(flame_breakup), 0.0), 1.0)
+    n["Light Scene"].inputs["A"].default_value = max(float(fire_light_scene), 0.0)
+    return True
+
+
+def apply_fire_look_to_scene(scene, props):
+    """Push the scene's look settings to every BlastFX volume material; returns how many were updated."""
+    values = {k: getattr(props, k, v) for k, v in LOOK_DEFAULTS.items()}
+    count = 0
+    for mat in bpy.data.materials:
+        if mat.get(LOOK_TAG) and mat.node_tree is not None and apply_fire_look(mat, **values):
+            count += 1
+    return count
+
+
+def _build_look_layer(mat, nodes, links, flame_power, strength_out, radius):
+    """flame**gamma -> contrast about a pivot; strength x 2^exposure x break-up mask x (camera ? 1 : light scene)."""
+    contrast = _math(nodes, "POWER", 1.0, (-240, -600))
+    contrast.name = "BlastFX Contrast"
+    links.new(flame_power.outputs[0], contrast.inputs[0])
+    pivot = _math(nodes, "MULTIPLY", 1.0, (-60, -600))
+    pivot.name = "BlastFX Contrast Pivot"
+    links.new(contrast.outputs[0], pivot.inputs[0])
+
+    exposure = nodes.new("ShaderNodeValue")
+    exposure.name = "BlastFX Exposure"
+    exposure.location = (-240, -760)
+    exposure.outputs[0].default_value = 1.0
+
+    # Break-up: 4D noise in world space / R (scale-free), evolving over time; the fire moving through it flickers.
+    geo = nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1060, -900)
+    per_r = nodes.new("ShaderNodeVectorMath")
+    per_r.operation = "SCALE"
+    per_r.location = (-880, -900)
+    per_r.inputs["Scale"].default_value = 1.0 / max(radius, 1e-6)
+    links.new(geo.outputs["Position"], per_r.inputs[0])
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.noise_dimensions = "4D"
+    noise.location = (-700, -900)
+    noise.inputs["Scale"].default_value = BREAKUP_NOISE_SCALE
+    noise.inputs["Detail"].default_value = 3.0
+    links.new(per_r.outputs["Vector"], noise.inputs["Vector"])
+    try:  # simple-expression driver: runs without Python auto-exec
+        fcurve = noise.inputs["W"].driver_add("default_value")
+        fcurve.driver.type = "SCRIPTED"
+        fcurve.driver.expression = f"frame / fps * {BREAKUP_FLICKER_PER_S}"
+        var = fcurve.driver.variables.new()
+        var.name = "fps"
+        var.type = "CONTEXT_PROP"
+        var.targets[0].context_property = "ACTIVE_SCENE"
+        var.targets[0].data_path = "render.fps"
+    except (AttributeError, TypeError, RuntimeError):
+        pass
+    mask = nodes.new("ShaderNodeMapRange")
+    mask.interpolation_type = "SMOOTHSTEP"
+    mask.location = (-520, -900)
+    mask.inputs["From Min"].default_value = 0.44
+    mask.inputs["From Max"].default_value = 0.56
+    links.new(noise.outputs["Fac"], mask.inputs["Value"])
+    breakup = nodes.new("ShaderNodeMix")
+    breakup.data_type = "FLOAT"
+    breakup.name = "BlastFX Breakup"
+    breakup.location = (-340, -900)
+    breakup.inputs[0].default_value = 0.0
+    breakup.inputs["A"].default_value = 1.0
+    links.new(mask.outputs["Result"], breakup.inputs["B"])
+
+    # Light Scene: camera rays see the fire at full strength; every other ray (lighting the ground, the smoke and
+    # the scene) sees it x this factor. Cycles only; EEVEE has no ray types for volumes.
+    path = nodes.new("ShaderNodeLightPath")
+    path.location = (-520, -1100)
+    light = nodes.new("ShaderNodeMix")
+    light.data_type = "FLOAT"
+    light.name = "BlastFX Light Scene"
+    light.location = (-340, -1100)
+    light.inputs["A"].default_value = 1.0
+    light.inputs["B"].default_value = 1.0
+    links.new(path.outputs["Is Camera Ray"], light.inputs[0])
+
+    out = strength_out
+    for i, factor in enumerate((exposure.outputs[0], breakup.outputs["Result"], light.outputs["Result"])):
+        m = _math(nodes, "MULTIPLY", 1.0, (40 + 0 * i, -600 - 160 * i))
+        links.new(out, m.inputs[0])
+        links.new(factor, m.inputs[1])
+        out = m.outputs[0]
+    return pivot, out
+
+
 def build_volume_material(name, config):
     """Scale-free Mantaflow volume material (see ShadingConfig).
 
@@ -129,13 +241,14 @@ def build_volume_material(name, config):
         nodes, "MULTIPLY",
         shading.fire_brightness * (shading.agx_brightness if agx else 1.0), (-240, -420),
     )
-    links.new(gamma.outputs[0], brightness.inputs[0])
     strength = nodes.new("ShaderNodeMath")
     strength.operation = "MULTIPLY"
     strength.location = (-60, -420)
     links.new(brightness.outputs[0], strength.inputs[0])
     links.new(density_scale.outputs[0], strength.inputs[1])
-    links.new(strength.outputs[0], _require(
+    contrast, graded = _build_look_layer(mat, nodes, links, gamma, strength.outputs[0], radius)
+    links.new(contrast.outputs[0], brightness.inputs[0])
+    links.new(graded, _require(
         _socket(volume, "Emission Strength"), "volume emission strength socket", volume, "emission_strength",
     ))
 
@@ -152,4 +265,6 @@ def build_volume_material(name, config):
         anisotropy.default_value = shading.anisotropy
 
     links.new(volume.outputs["Volume"], output.inputs["Volume"])
+    mat[LOOK_TAG] = True
+    apply_fire_look(mat, **{k: config.get("look", {}).get(k, v) for k, v in LOOK_DEFAULTS.items()})
     return mat

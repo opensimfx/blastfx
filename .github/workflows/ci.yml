@@ -53,6 +53,11 @@ jobs:
         run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/physics_validation.py'
       - name: Add-on end to end (background bake worker, cache safety, load handler)
         run: '"$BLENDER" -b --factory-startup --python-exit-code 1 --python tools/addon_bake_smoke.py'
+      - name: Fire look, particles, fire path, flipbook
+        run: |
+          for t in look_smoke particles_smoke fire_path_smoke flipbook_smoke noise_rebake_smoke sprite_smoke; do
+            "$BLENDER" -b --factory-startup --python-exit-code 1 --python "tools/$t.py"
+          done
 
   # The same Blender checks on Windows and macOS: the bake runs in a second Blender process, and a
   # POSIX-only import there once broke every bake on Windows while the Linux job stayed green.

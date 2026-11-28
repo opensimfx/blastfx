@@ -45,7 +45,13 @@ def build_explosion(context, collection, controller, props, plan=None):
     if props.use_debris:
         # One collection-variant particle system (4 tumbling shard meshes)
         # covers debris; the old single-shard emitter was merged into it.
-        build_debris_particles(context, collection, controller, config)
+        build_debris_particles(context, collection, controller, config,
+                               smoke_trails=bool(getattr(props, "use_debris_smoke", True)))
     build_spark_particles(context, collection, controller, config)
+
+    path = getattr(props, "fire_path", None)
+    if path is not None and path.type == "CURVE":
+        from .fire_path import build_fire_path
+        build_fire_path(context, collection, controller, config, path, float(props.fire_path_speed))
 
     return domain

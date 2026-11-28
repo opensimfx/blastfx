@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .domain_envelope import build_domain_envelope
+from .domain_envelope import blast_direction, build_domain_envelope, directed_vector
 from .explosion_profile import ExplosionProfile, profile_for, shading_for
 from .froude import time_unit
 from .physics import (
@@ -71,6 +71,8 @@ class BlastPlan:
             "profile": self.profile,
             "shading": shading_for(props.explosion_type),
             "domain_envelope": self.envelope,
+            "directed": bool(getattr(props, "use_directed", False)),
+            "direction": blast_direction(directed_vector(props)),
             "plan": self,
             "_fps": self.fps,
         }
@@ -126,7 +128,7 @@ def plan_blast(props, scene) -> BlastPlan:
         physical=physical,
         profile=profile,
         numerical=numerical,
-        envelope=build_domain_envelope(physical, profile),
+        envelope=build_domain_envelope(physical, profile, directed_vector(props)),
         fps=fps,
         gravity=gravity,
         timeline_duration_s=timeline,

@@ -3,7 +3,7 @@ from .collections import create_blast_collection, remove_collection, remove_gene
 from .controller import new_blast_id, tag_controller, is_controller
 from .validation import validate_props, validate_scene
 from .physics import validate_physical_config
-from .physical_state import build_physical_state, state_hash
+from .physical_state import build_physical_state, data_state_hash, noise_state_hash, state_hash
 from .blender_api import runtime_self_test
 from .cache import invalidate as invalidate_cache
 from .blast_plan import plan_blast
@@ -45,6 +45,8 @@ def _tag_plan(controller, plan, props, scene, blast_id):
         profile_state(plan.profile),
     )
     controller["blastfx_physics_state"] = state_hash(physical_state)
+    controller["blastfx_data_state"] = data_state_hash(physical_state)
+    controller["blastfx_noise_state"] = noise_state_hash(physical_state)
     controller["blastfx_characteristic_radius_m"] = physical.characteristic_radius_m
     controller["blastfx_characteristic_time_s"] = physical.characteristic_time_s
     controller["blastfx_characteristic_velocity_mps"] = physical.characteristic_velocity_mps

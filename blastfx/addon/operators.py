@@ -16,6 +16,10 @@ from ..core.bake_job import (
 )
 
 
+from .flipbook import CLASSES as FLIPBOOK_CLASSES  # noqa: E402
+from .sprites import CLASSES as SPRITE_CLASSES  # noqa: E402
+
+
 class BLASTFX_OT_create(Operator):
     bl_idname = "blastfx.create"
     bl_label = "Create Blast"
@@ -153,6 +157,67 @@ class BLASTFX_OT_bake(Operator):
             return {"CANCELLED"}
 
         self.report({"INFO"}, "Mantaflow bake started in a background Blender worker.")
+        return {"FINISHED"}
+
+
+class BLASTFX_OT_rebake_noise(Operator):
+    bl_idname = "blastfx.rebake_noise"
+    bl_label = "Re-bake Noise"
+    bl_description = ("Keep the baked simulation and bake only its noise pass again with the current noise "
+                      "settings (Noise upres). Much faster than a full bake")
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from ..core.blast_plan import plan_blast
+        from ..core.cache import drop_noise, retarget_for_noise
+        from ..core.explosion import _tag_plan
+        from ..simulation.domain import apply_noise_settings
+
+        controller = context.active_object
+        if not controller or not controller.get("blastfx_controller"):
+            self.report({"ERROR"}, "Select a BlastFX controller.")
+            return {"CANCELLED"}
+        collection = next((c for c in controller.users_collection if c.name.startswith("Blast_")), None)
+        domain_obj = next((o for o in collection.objects if o.get("blastfx_role") == "domain"), None) \
+            if collection else None
+        mod = domain_obj and (domain_obj.modifiers.get("BlastFX Fluid") or domain_obj.modifiers.get("Fluid"))
+        if not mod:
+            self.report({"ERROR"}, "No BlastFX domain found.")
+            return {"CANCELLED"}
+        try:
+            if active_job():
+                raise RuntimeError("A BlastFX bake is already running.")
+            if mod.domain_settings.cache_type != "MODULAR":
+                raise RuntimeError("This blast was baked without a separate noise pass (Final quality has one): "
+                                   "bake it again.")
+            props = context.scene.blastfx
+            plan = plan_blast(props, context.scene)
+            if plan.numerical.noise_upres <= 1:
+                raise RuntimeError("Noise is off in the current settings: nothing to re-bake.")
+            # _tag_plan rewrites these; put them back if the cache refuses (the data changed too)
+            previous = {}
+            for key, value in controller.items():
+                if key.startswith("blastfx_"):
+                    previous[key] = value.to_dict() if hasattr(value, "to_dict") else (
+                        value.to_list() if hasattr(value, "to_list") else value)
+            _tag_plan(controller, plan, props, context.scene, controller["blastfx_id"])
+            try:
+                retarget_for_noise(props, controller["blastfx_id"],
+                                   state_hash=controller["blastfx_physics_state"],
+                                   data_hash=controller["blastfx_data_state"])
+            except Exception:
+                for key, value in previous.items():
+                    controller[key] = value
+                raise
+            # Old noise files would be loaded as already baked (measured): delete them before the snapshot, so
+            # the worker bakes the noise at the new settings.
+            drop_noise(props, controller["blastfx_id"])
+            apply_noise_settings(mod.domain_settings, plan.numerical)
+            start_bake_job(context, controller, domain_obj, mode="noise")
+        except Exception as exc:
+            self.report({"ERROR"}, f"Re-bake Noise failed: {exc}")
+            return {"CANCELLED"}
+        self.report({"INFO"}, "Noise re-bake started in a background Blender worker.")
         return {"FINISHED"}
 
 
@@ -393,6 +458,7 @@ CLASSES = (
     BLASTFX_OT_validate,
     BLASTFX_OT_remove,
     BLASTFX_OT_bake,
+    BLASTFX_OT_rebake_noise,
     BLASTFX_OT_cancel_bake,
     BLASTFX_OT_free,
     BLASTFX_OT_rebuild,
@@ -400,4 +466,4 @@ CLASSES = (
     BLASTFX_OT_duplicate,
     BLASTFX_OT_create_batch,
     BLASTFX_OT_bake_all,
-)
+) + FLIPBOOK_CLASSES + SPRITE_CLASSES

@@ -292,6 +292,30 @@ The system must not expose or implement engineering calculations intended to det
 
 Those quantities are outside the add-on's scope.
 
+## Debris, sparks, paths and directed blasts
+
+Speeds are multiples of the velocity unit U and times multiples of T, like the rest of the blast.
+
+- **Ejecta** (modelled after crater ejecta curtains, which leave at about 45 degrees). A surface blast throws its
+  debris from a dome on the ground, so every shard leaves upward and outward; with a full sphere half the shards
+  were thrown into the ground and landed within a few frames (measured: median height 0.0 R by frame 24, now
+  0.54 R). Landing: the ground collision damps 80 % of the impact speed with 0.9 friction.
+- **Debris smoke trails** (modelled). A smoke-only flow fed by the debris particles (density 1.2 x Smoke Density,
+  warm, a tenth of the shard's velocity, 4 sub-frames so fast shards leave lines, not dots). It is keyed off for
+  the first 0.5 T, until the shards have left the fireball (~0.8 R at 1.6 U); otherwise the 220 shards inject one
+  puff into its core at birth.
+- **Spark cooling** (modelled; Stefan-Boltzmann cited). Embers start near 1900 K and cool towards the Draper
+  point (~800 K, where visible glow ends): T(t) = 800 + 1100 exp(-3 t), t = age / lifetime; radiance scales as
+  (T / 1900 K)^4, so a spark dims as it reddens.
+- **Directed blast** (modelled). Both burst caps burst into the half-space around the direction (the lower cap
+  flips like a ground blast's), the debris dome and spark emitter turn with it, and every particle system adds a
+  sideways velocity of 2 x its launch speed x the direction's horizontal part. A velocity bias alone barely
+  steered the fireball (combustion and buoyancy dominate: centroid shift 13 px of ~300); the one-sided burst with
+  the bias shifted it 39 px. The domain envelope moves 0.4 x its half-width toward the direction.
+- **Fire path** (modelled). The curve is resampled every 0.12 R; one particle system emits from those points in
+  order, so the front covers the path in length / Path Speed (event time, stretched by slow motion). Each point
+  feeds fuel for 0.8 T, so the trail burns on behind the front.
+
 ## Validation
 
 The physics validator flags:

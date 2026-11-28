@@ -18,6 +18,11 @@ Optional environment (defaults reproduce the validation renders):
   BLASTFX_CAMFX              0: no camera FX (shake, defocus), for sharp stills (1)
   BLASTFX_MOMENTS            "0.12,0.4": render several moments from the one bake,
                              written as <out>_<moment>.png
+  BLASTFX_PATH               "x,y,z;x,y,z": fire along a path (BLASTFX_PATH_SPEED m/s, default 6)
+  BLASTFX_DIR                "1,0,1": directed blast (blast direction)
+  BLASTFX_DEBRIS             1: debris with smoke trails; bare: debris without trails
+  BLASTFX_LOOKS              "0,1,0,1;1,1.5,0.6,1": render several fire looks from the one bake
+                             (exposure, contrast, break-up, lights scene), written as <out>_look<i>.png
 
 Presets: small, medium, large, large_ground, nuclear_airburst, nuclear_groundburst
 """
@@ -168,6 +173,26 @@ def main(argv):
     props.use_camera_fx = os.environ.get("BLASTFX_CAMFX", "1") != "0"
     props.use_exposure = False
     props.use_heat_distortion = False
+    if os.environ.get("BLASTFX_PATH"):              # "x,y,z;x,y,z;...": fire path (poly curve), BLASTFX_PATH_SPEED m/s
+        cd = bpy.data.curves.new("FirePath", "CURVE")
+        cd.dimensions = "3D"
+        pts = [tuple(float(v) for v in q.split(",")) for q in os.environ["BLASTFX_PATH"].split(";")]
+        sp = cd.splines.new("POLY")
+        sp.points.add(len(pts) - 1)
+        for i, co in enumerate(pts):
+            sp.points[i].co = (*co, 1.0)
+        trail = bpy.data.objects.new("FirePath", cd)
+        scene.collection.objects.link(trail)
+        props.fire_path = trail
+        props.fire_path_speed = float(os.environ.get("BLASTFX_PATH_SPEED", "6"))
+    if os.environ.get("BLASTFX_COMPONENTS") == "0":  # only the extras (path, debris): no fireball/column/surge
+        props.use_fireball = props.use_stem = props.use_dust = props.use_shockwave = False
+    if os.environ.get("BLASTFX_DIR"):               # "1,0,1": directed blast
+        props.use_directed = True
+        props.blast_direction = tuple(float(v) for v in os.environ["BLASTFX_DIR"].split(","))
+    if os.environ.get("BLASTFX_DEBRIS"):            # "1" debris with smoke trails, "bare" debris without
+        props.use_debris = True
+        props.use_debris_smoke = os.environ["BLASTFX_DEBRIS"] != "bare"
 
     if "FINISHED" not in bpy.ops.blastfx.create():
         raise SystemExit(f"Create failed for {preset_id}")
@@ -210,13 +235,20 @@ def main(argv):
 
     out.parent.mkdir(parents=True, exist_ok=True)
     moments = [float(m) for m in os.environ["BLASTFX_MOMENTS"].split(",")] if os.environ.get("BLASTFX_MOMENTS") else [moment]
-    for m in moments:
-        target = out if len(moments) == 1 else out.with_name(f"{out.stem}_{m:g}{out.suffix}")
-        scene.frame_set(int(round(first + m * (last - first))))
-        scene.render.filepath = str(target)
-        t0 = time.time()
-        bpy.ops.render.render(write_still=True)
-        print(f"rendered {target} (frame {scene.frame_current}) in {time.time() - t0:.1f}s", flush=True)
+    looks = [tuple(float(v) for v in lk.split(",")) for lk in os.environ["BLASTFX_LOOKS"].split(";")] \
+        if os.environ.get("BLASTFX_LOOKS") else [None]
+    for li, look in enumerate(looks):
+        if look is not None:
+            props.fire_exposure, props.fire_contrast, props.flame_breakup, props.fire_light_scene = look
+        for m in moments:
+            target = out if len(moments) == 1 else out.with_name(f"{out.stem}_{m:g}{out.suffix}")
+            if look is not None:
+                target = target.with_name(f"{target.stem}_look{li}{target.suffix}")
+            scene.frame_set(int(round(first + m * (last - first))))
+            scene.render.filepath = str(target)
+            t0 = time.time()
+            bpy.ops.render.render(write_still=True)
+            print(f"rendered {target} (frame {scene.frame_current}) in {time.time() - t0:.1f}s", flush=True)
 
     save = os.environ.get("BLASTFX_SAVE_BLEND")
     if save:

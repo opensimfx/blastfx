@@ -5,6 +5,7 @@ import bpy
 
 from .cache_layout import (
     COMPLETE_MARKER,
+    NOISE_PENDING_MARKER,
     EXPECTED_MARKER,
     GENERATION_MARKER,
     _generation_dir_from_root,
@@ -92,7 +93,7 @@ def active_cache_path(props, blast_id: str) -> Path:
     return _active_generation(props, blast_id)
 
 
-def mark_baked(props, blast_id: str, *, state_hash: str) -> None:
+def mark_baked(props, blast_id: str, *, state_hash: str, data_hash: str = "") -> None:
     """Mark a bake complete only after Mantaflow produced cache output."""
     path = _active_generation(props, blast_id)
     expected_path = _marker_path(path, EXPECTED_MARKER)
@@ -102,8 +103,49 @@ def mark_baked(props, blast_id: str, *, state_hash: str) -> None:
     if expected.get("state_hash") != state_hash:
         raise RuntimeError("Blast cache state does not match the current physics state.")
     _marker_path(path, COMPLETE_MARKER).write_text(
-        json.dumps({"state_hash": state_hash}, sort_keys=True), encoding="utf-8"
+        json.dumps({"state_hash": state_hash, "data_hash": data_hash}, sort_keys=True), encoding="utf-8"
     )
+    _marker_path(path, NOISE_PENDING_MARKER).unlink(missing_ok=True)
+
+
+def drop_noise(props, blast_id: str) -> int:
+    """Delete the noise pass files of the blast's active generation (its data stays); returns how many. Only
+    the generation's own ``noise`` folder, never through a symlink. Mantaflow would otherwise load the old noise
+    frames as already baked (the main scene never baked itself, so its "baked" flags cannot free them)."""
+    gen = _active_generation(props, blast_id)
+    noise = gen / "noise"
+    if not noise.exists():
+        return 0
+    if noise.is_symlink() or not noise.is_dir() or noise.resolve().parent != gen.resolve():
+        raise RuntimeError(f"Refusing to clear an unexpected noise folder: {noise}")
+    count = 0
+    for path in noise.rglob("*"):
+        if path.is_file() and not path.is_symlink():
+            path.unlink()
+            count += 1
+    return count
+
+
+def retarget_for_noise(props, blast_id: str, *, state_hash: str, data_hash: str) -> None:
+    """Before a noise-only re-bake: keep the generation and its data, point the expected identity at the new
+    (noise-changed) state and drop the completion marker until the noise is baked and verified. Refuses unless
+    the completed (or interrupted noise re-bake's) data identity is the current one."""
+    path = _active_generation(props, blast_id)
+    complete_path = _marker_path(path, COMPLETE_MARKER)
+    pending_path = _marker_path(path, NOISE_PENDING_MARKER)
+    source = complete_path if complete_path.exists() else pending_path
+    try:
+        have = json.loads(source.read_text(encoding="utf-8")).get("data_hash")
+    except (OSError, ValueError):
+        have = None
+    if not data_hash or have != data_hash:
+        raise RuntimeError("The simulation data changed too: bake the whole blast again.")
+    expected_path = _marker_path(path, EXPECTED_MARKER)
+    expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    expected["state_hash"] = state_hash
+    expected_path.write_text(json.dumps(expected, sort_keys=True), encoding="utf-8")
+    pending_path.write_text(json.dumps({"data_hash": data_hash}, sort_keys=True), encoding="utf-8")
+    complete_path.unlink(missing_ok=True)
 
 
 def validate_cache_output(
@@ -159,7 +201,7 @@ def invalidate(props, blast_id: str):
     return blast_id
 
 
-def status(props, blast_id: str, domain=None, state_hash: str | None = None) -> str:
+def status(props, blast_id: str, domain=None, state_hash: str | None = None, data_hash: str | None = None) -> str:
     """Return cache state only for the current expected and completed cache."""
     if domain is not None:
         if (
@@ -190,6 +232,10 @@ def status(props, blast_id: str, domain=None, state_hash: str | None = None) -> 
             expected_data.get("state_hash") != state_hash
             or complete_data.get("state_hash") != state_hash
         ):
+            # only the noise settings changed: the data can stay, the noise can be re-baked on its own
+            if (data_hash and complete_data.get("data_hash") == data_hash
+                    and getattr(domain, "cache_type", "") == "MODULAR"):
+                return "NOISE_STALE"
             return "STALE"
         cache_format = getattr(domain, "cache_data_format", "OPENVDB")
         try:
@@ -207,6 +253,13 @@ def status(props, blast_id: str, domain=None, state_hash: str | None = None) -> 
         if has_files or has_runtime_cache:
             return "BAKED"
         complete.unlink(missing_ok=True)
+    pending = cache_dir / NOISE_PENDING_MARKER
+    if expected.exists() and pending.exists() and data_hash:
+        try:   # an interrupted noise re-bake: the data is intact, offer the noise re-bake again
+            if json.loads(pending.read_text(encoding="utf-8")).get("data_hash") == data_hash:
+                return "NOISE_STALE"
+        except (OSError, ValueError):
+            return "INVALID"
     if expected.exists():
         cache_format = getattr(domain, "cache_data_format", "OPENVDB")
         try:
